@@ -1,100 +1,126 @@
 import streamlit as st
 import pandas as pd
+import re
 from io import BytesIO
 
-# ==============================
-# CONFIG
-# ==============================
-st.set_page_config(page_title="BOM vs Packing Checker", layout="wide")
-
-st.title("📊 BOM vs Packing Comparator")
+st.title("📊 FRS Oversent Verification Tool")
 
 # ==============================
 # UPLOAD FILES
 # ==============================
-packing_file = st.file_uploader("📂 Upload Packing Excel file", type=["xlsx"])
-bom_file = st.file_uploader("📂 Upload BOM Excel file", type=["xlsx"])
+main_file = st.file_uploader("📂 Upload Main Report", type=["xlsx"])
+frs_files = st.file_uploader("📂 Upload FRS Files", type=["xlsx"], accept_multiple_files=True)
+
+# ==============================
+# FUNCTION
+# ==============================
+def extract_frs(text):
+    match = re.search(r'"(.*?)"', str(text))
+    return match.group(1) if match else None
 
 # ==============================
 # PROCESS
 # ==============================
-if packing_file is not None and bom_file is not None:
+if main_file and frs_files:
 
-    try:
-        # Lire les fichiers
-        packing_sheets = pd.read_excel(packing_file, sheet_name=None)
-        bom_sheets = pd.read_excel(bom_file, sheet_name=None)
+    # Charger main file
+    main_sheets = pd.read_excel(main_file, sheet_name=None)
 
-        # Prendre la première feuille
-        packing_df = list(packing_sheets.values())[0]
-        bom_df = list(bom_sheets.values())[0]
+    # Charger fichiers FRS
+    frs_dict = {}
+    for file in frs_files:
+        name = file.name.replace(".xlsx", "")
+        df = pd.concat(pd.read_excel(file, sheet_name=None).values())
+        df = df.fillna(0)
+        frs_dict[name] = df
 
-        st.success("✅ Fichiers chargés avec succès")
+    results = []
 
-        # ==============================
-        # CHOIX DES COLONNES
-        # ==============================
-        st.subheader("⚙️ Configuration des colonnes")
+    # ==============================
+    # ANALYSE
+    # ==============================
+    for sheet_name, df in main_sheets.items():
 
-        packing_col = st.selectbox(
-            "Choisir la colonne PN (Packing)",
-            packing_df.columns
-        )
+        df = df.fillna("")
 
-        bom_col = st.selectbox(
-            "Choisir la colonne PN (BOM)",
-            bom_df.columns
-        )
+        for _, row in df.iterrows():
 
-        # ==============================
-        # COMPARAISON
-        # ==============================
-        packing_pn = set(packing_df[packing_col].astype(str))
-        bom_pn = set(bom_df[bom_col].astype(str))
+            part_no = row.get("PART NO", "")
+            odf = row.get("ODF", "")
+            moka = row.get("moka reply", "")
+            main_oversent = row.get("Oversent qty", 0)
 
-        missing_in_packing = bom_pn - packing_pn
-        missing_in_bom = packing_pn - bom_pn
+            frs_name = extract_frs(moka)
 
-        # ==============================
-        # AFFICHAGE
-        # ==============================
-        st.subheader("📊 Résultats")
+            if not frs_name or frs_name not in frs_dict:
+                continue
 
-        col1, col2 = st.columns(2)
+            frs_df = frs_dict[frs_name]
 
-        with col1:
-            st.write("❌ PN manquants dans Packing")
-            st.write(len(missing_in_packing))
-            st.dataframe(pd.DataFrame(list(missing_in_packing), columns=["PN"]))
+            match = frs_df[
+                (frs_df["PART NO."] == part_no) &
+                (frs_df["ODF"] == odf)
+            ]
 
-        with col2:
-            st.write("❌ PN manquants dans BOM")
-            st.write(len(missing_in_bom))
-            st.dataframe(pd.DataFrame(list(missing_in_bom), columns=["PN"]))
+            if match.empty:
+                results.append([part_no, odf, "NOT FOUND"])
+                continue
 
-        # ==============================
-        # EXPORT EXCEL
-        # ==============================
-        output = BytesIO()
+            r = match.iloc[0]
 
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            pd.DataFrame(list(missing_in_packing), columns=["PN"]).to_excel(
-                writer, sheet_name="Missing_in_Packing", index=False
-            )
-            pd.DataFrame(list(missing_in_bom), columns=["PN"]).to_excel(
-                writer, sheet_name="Missing_in_BOM", index=False
-            )
+            qty_needed = r["QTY NEEDED IN THIS LOT"]
+            qty_sent = r["QTY SENT IN THIS LOT"]
+            old_oversent = r["QTY OVERSENT IN LAST TIME - QTY NEEDED IN THIS LOT"]
+            frs_oversent = r["OVERSENT QTY"]
 
-        output.seek(0)
+            # 🔥 CALCUL
+            calc = old_oversent + qty_sent - qty_needed
 
-        st.download_button(
-            label="📥 Télécharger le rapport Excel",
-            data=output,
-            file_name="BOM_vs_Packing_Result.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+            # RESULT
+            if calc == frs_oversent:
+                status = "OK"
+            else:
+                status = "ERROR"
 
-    except Exception as e:
-        st.error(f"❌ Erreur : {e}")
+            if calc < 0:
+                status = "SHORTAGE"
+
+            results.append([
+                part_no,
+                odf,
+                calc,
+                frs_oversent,
+                main_oversent,
+                status
+            ])
+
+    # ==============================
+    # RESULT TABLE
+    # ==============================
+    result_df = pd.DataFrame(results, columns=[
+        "PART NO",
+        "ODF",
+        "CALCULATED",
+        "FRS OVERSENT",
+        "MAIN OVERSENT",
+        "STATUS"
+    ])
+
+    st.subheader("📊 Résultat de vérification")
+    st.dataframe(result_df)
+
+    # ==============================
+    # DOWNLOAD
+    # ==============================
+    output = BytesIO()
+    result_df.to_excel(output, index=False)
+    output.seek(0)
+
+    st.download_button(
+        "📥 Télécharger le rapport",
+        data=output,
+        file_name="FRS_CHECK.xlsx"
+    )
+
 else:
-    st.info("📌 Veuillez uploader les deux fichiers pour lancer la comparaison")
+    st.info("📌 Upload main file + FRS files")
