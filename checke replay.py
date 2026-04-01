@@ -7,7 +7,7 @@ st.set_page_config(layout="wide")
 st.title("📊 Oversent Verification Tool")
 
 # ==============================
-# 1. UPLOAD
+# UPLOAD FILES
 # ==============================
 main_file = st.file_uploader("📂 Upload Main File", type=["xlsx"])
 frs_files = st.file_uploader("📂 Upload FRS Files", type=["xlsx"], accept_multiple_files=True)
@@ -29,7 +29,7 @@ def extract_frs(text):
     return None
 
 # ==============================
-# PROCESS
+# START
 # ==============================
 if main_file and frs_files:
 
@@ -72,7 +72,7 @@ if main_file and frs_files:
 
             st.markdown(f"---\n### 📄 Sheet: {sheet_name}")
 
-            # Nettoyage colonnes
+            # Nettoyage
             df.columns = df.columns.str.strip().str.upper()
             df = df.fillna("")
 
@@ -88,43 +88,41 @@ if main_file and frs_files:
             # FILTRE REMARKS
             # ==========================
             if "REMARKS" not in df.columns:
-                st.error("❌ Colonne REMARKS manquante")
+                st.error("❌ REMARKS missing")
                 continue
 
-            df = df[df["REMARKS"].astype(str).str.upper().str.contains("MISSING|SHORTAGE", na=False)]
-
-            st.write("🔎 After REMARKS filter:", df.shape)
+            df1 = df[df["REMARKS"].astype(str).str.upper().str.contains("MISSING|SHORTAGE", na=False)]
+            st.write("🔎 After REMARKS filter:", df1.shape)
 
             # ==========================
             # FILTRE MOKA
             # ==========================
             if "MOKA REPLY" not in df.columns:
-                st.error("❌ Colonne MOKA REPLY manquante")
+                st.error("❌ MOKA REPLY missing")
                 continue
 
-            df = df[df["MOKA REPLY"].astype(str).str.lower().str.contains("enough", na=False)]
+            df2 = df1[df1["MOKA REPLY"].astype(str).str.lower().str.contains("enough", na=False)]
+            st.write("🔎 After MOKA filter:", df2.shape)
 
-            st.write("🔎 After MOKA filter:", df.shape)
-
-            if df.empty:
-                st.warning("⚠️ No data after filtering")
+            if df2.empty:
+                st.warning("⚠️ No data after filters")
                 continue
 
             # ==========================
-            # TRAITEMENT LIGNES
+            # TRAITEMENT
             # ==========================
-            for _, row in df.iterrows():
+            for _, row in df2.iterrows():
 
                 # PART N
                 part_no = str(row.get("PART N", "")).strip().upper()
 
-                # QTY FOR dynamic
-                qty_needed_col = [col for col in df.columns if "QTY FOR" in col]
+                # QTY NEEDED (colonne dynamique)
+                qty_col = [col for col in df.columns if "QTY FOR" in col]
 
-                if not qty_needed_col:
+                if not qty_col:
                     continue
 
-                qty_needed = row[qty_needed_col[0]]
+                qty_needed = row[qty_col[0]]
 
                 # PACKING LIST
                 qty_sent = row.get("PACKING LIST QTY", 0)
@@ -135,6 +133,7 @@ if main_file and frs_files:
                 # MOKA REPLY
                 moka = row.get("MOKA REPLY", "")
 
+                # EXTRACTION FRS FILE
                 frs_name = extract_frs(moka)
 
                 if not frs_name or frs_name not in frs_dict:
@@ -142,10 +141,24 @@ if main_file and frs_files:
 
                 frs_df = frs_dict[frs_name]
 
-                # Match FRS
+                # ==========================
+                # NORMALISATION MATCH
+                # ==========================
+                frs_df["PART NO."] = frs_df["PART NO."].astype(str).str.strip().str.upper()
+                frs_df["ODF"] = frs_df["ODF"].astype(str).str.strip().str.upper()
+
+                part_no_clean = part_no.strip().upper()
+                odf_clean = odf.strip().upper()
+
+                # DEBUG
+                st.write("🔍 Searching:", part_no_clean, odf_clean)
+
+                # ==========================
+                # MATCH
+                # ==========================
                 match = frs_df[
-                    (frs_df["PART NO."] == part_no) &
-                    (frs_df["ODF"] == odf)
+                    (frs_df["PART NO."] == part_no_clean) &
+                    (frs_df["ODF"] == odf_clean)
                 ]
 
                 if match.empty:
@@ -154,20 +167,21 @@ if main_file and frs_files:
 
                 idx = match.index[0]
 
-                # OLD OVERSENT (ligne précédente)
+                # OLD OVERSENT
                 if idx > 0:
                     old_oversent = frs_df.iloc[idx - 1].get("OVERSENT QTY", 0)
                 else:
                     old_oversent = 0
 
+                # ==========================
                 # CALCUL
+                # ==========================
                 calc = (old_oversent - qty_needed) + qty_sent
 
+                # ==========================
                 # CHECK
-                if calc == oversent_reply:
-                    check = "OK"
-                else:
-                    check = "NON CONFORME"
+                # ==========================
+                check = "OK" if calc == oversent_reply else "NON CONFORME"
 
                 results.append([
                     sheet_name,
@@ -195,11 +209,10 @@ if main_file and frs_files:
                 "CHECK"
             ])
 
-            st.success("✅ Completed")
+            st.success("✅ Done")
 
             st.dataframe(result_df)
 
-            # DOWNLOAD
             output = BytesIO()
             result_df.to_excel(output, index=False)
             output.seek(0)
