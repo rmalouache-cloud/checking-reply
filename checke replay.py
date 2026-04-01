@@ -3,16 +3,18 @@ import pandas as pd
 import re
 from io import BytesIO
 
+st.set_page_config(layout="wide")
+
 st.title("📊 Oversent Verification Tool")
 
 # ==============================
-# 1. UPLOAD FILES
+# 1. UPLOAD
 # ==============================
 main_file = st.file_uploader("📂 Upload Main File", type=["xlsx"])
 frs_files = st.file_uploader("📂 Upload FRS Files", type=["xlsx"], accept_multiple_files=True)
 
 # ==============================
-# EXTRACTION NOM FICHIER FRS
+# EXTRACTION FRS NAME
 # ==============================
 def extract_frs(text):
     text = str(text)
@@ -28,32 +30,34 @@ def extract_frs(text):
     return None
 
 # ==============================
-# MAIN PROCESS
+# START
 # ==============================
 if main_file and frs_files:
 
-    # 2. LIRE LES FEUILLES (MODÈLES)
+    # Lire toutes les feuilles
     main_sheets = pd.read_excel(main_file, sheet_name=None)
 
-    st.subheader("📝 Saisir ODF pour chaque modèle")
+    st.subheader("📝 Saisir ODF par modèle")
 
-    # 3. SAISIR ODF
+    # Saisie ODF
     odf_inputs = {}
     for sheet in main_sheets.keys():
         odf_inputs[sheet] = st.text_input(f"ODF for {sheet}")
 
-    # BOUTON LANCEMENT
     if st.button("▶️ Start Verification"):
 
         st.info("⏳ Traitement en cours...")
 
-        # Charger fichiers FRS
+        # ==========================
+        # Charger FRS
+        # ==========================
         frs_dict = {}
 
         for file in frs_files:
             name = file.name.replace(".xlsx", "")
             df = pd.concat(pd.read_excel(file, sheet_name=None).values())
-            df = df.fillna(0)
+
+            df.columns = df.columns.str.strip().str.upper()
 
             df["PART NO."] = df["PART NO."].astype(str).str.strip().str.upper()
             df["ODF"] = df["ODF"].astype(str).str.strip().str.upper()
@@ -62,43 +66,63 @@ if main_file and frs_files:
 
         results = []
 
-        # ==============================
+        # ==========================
         # TRAITEMENT PAR FEUILLE
-        # ==============================
+        # ==========================
         for sheet_name, df in main_sheets.items():
 
+            st.markdown(f"---\n### 📄 Sheet: {sheet_name}")
+
+            df.columns = df.columns.str.strip().str.upper()
             df = df.fillna("")
+
+            # DEBUG colonnes
+            st.write("📌 Colonnes :", df.columns.tolist())
+
             odf = odf_inputs.get(sheet_name, "").strip().upper()
 
             if odf == "":
                 st.warning(f"⚠️ ODF manquant pour {sheet_name}")
                 continue
 
-            # 4. FILTRE REMARKS
-            df = df[df["Remarks"].str.contains("Missing|Shortage", case=False, na=False)]
+            # ==========================
+            # FILTRE 1 : REMARKS
+            # ==========================
+            if "REMARKS" not in df.columns:
+                st.error("❌ Colonne REMARKS manquante")
+                continue
 
-            # 5. FILTRE MOKA REPLY
-            df = df[df["moka reply"].str.contains(
-                "it's enough for your production",
-                case=False,
-                na=False
-            )]
+            df1 = df[df["REMARKS"].astype(str).str.upper().str.contains("MISSING|SHORTAGE", na=False)]
 
-            for _, row in df.iterrows():
+            st.write("🔎 Après filtre REMARKS :", df1.shape)
 
-                # 6. PART NO
+            # ==========================
+            # FILTRE 2 : MOKA REPLY
+            # ==========================
+            if "MOKA REPLY" not in df.columns:
+                st.error("❌ Colonne MOKA REPLY manquante")
+                continue
+
+            df2 = df1[df1["MOKA REPLY"].astype(str).str.lower().str.contains("enough", na=False)]
+
+            st.write("🔎 Après filtre MOKA :", df2.shape)
+
+            if df2.empty:
+                st.warning("⚠️ Aucune ligne après filtrage")
+                continue
+
+            # ==========================
+            # TRAITEMENT LIGNES
+            # ==========================
+            for _, row in df2.iterrows():
+
                 part_no = str(row.get("PART NO", "")).strip().upper()
 
-                # 7. QTY NEEDED (colonne E)
-                qty_needed = row.iloc[4]
+                qty_needed = row.iloc[4] if len(row) > 4 else 0
+                qty_sent = row.get("PACKING LIST QTY", 0)
+                oversent_reply = row.iloc[8] if len(row) > 8 else 0
 
-                # 9. QTY SENT
-                qty_sent = row.get("Packing list qty", 0)
-
-                # 11. OVERSENT REPLY (colonne I)
-                oversent_reply = row.iloc[8]
-
-                moka = row.get("moka reply", "")
+                moka = row.get("MOKA REPLY", "")
                 frs_name = extract_frs(moka)
 
                 if not frs_name or frs_name not in frs_dict:
@@ -106,7 +130,6 @@ if main_file and frs_files:
 
                 frs_df = frs_dict[frs_name]
 
-                # 8. CHERCHER PN + ODF
                 match = frs_df[
                     (frs_df["PART NO."] == part_no) &
                     (frs_df["ODF"] == odf)
@@ -118,22 +141,18 @@ if main_file and frs_files:
 
                 idx = match.index[0]
 
-                # 🔥 OLD OVERSENT (ligne précédente)
+                # OLD OVERSENT
                 if idx > 0:
-                    old_oversent = frs_df.iloc[idx - 1]["OVERSENT QTY"]
+                    old_oversent = frs_df.iloc[idx - 1].get("OVERSENT QTY", 0)
                 else:
                     old_oversent = 0
 
-                # 10. CALCUL
+                # CALCUL
                 calc = (old_oversent - qty_needed) + qty_sent
 
-                # 12. COMPARAISON
-                if calc == oversent_reply:
-                    check = "OK"
-                else:
-                    check = "NON CONFORME"
+                # CHECK
+                check = "OK" if calc == oversent_reply else "NON CONFORME"
 
-                # RESULT
                 results.append([
                     sheet_name,
                     part_no,
@@ -145,34 +164,37 @@ if main_file and frs_files:
                     check
                 ])
 
-        # ==============================
-        # TABLE FINAL
-        # ==============================
-        result_df = pd.DataFrame(results, columns=[
-            "MODEL",
-            "PART NO",
-            "QTY NEEDED",
-            "OLD OVERSENT",
-            "QTY SENT",
-            "OVERSENT CALCULE",
-            "OVERSENT REPLY",
-            "CHECK"
-        ])
+        # ==========================
+        # RESULTATS
+        # ==========================
+        if results:
+            result_df = pd.DataFrame(results, columns=[
+                "MODEL",
+                "PART NO",
+                "QTY NEEDED",
+                "OLD OVERSENT",
+                "QTY SENT",
+                "OVERSENT CALCULE",
+                "OVERSENT REPLY",
+                "CHECK"
+            ])
 
-        st.success("✅ Vérification terminée")
+            st.success("✅ Traitement terminé")
 
-        st.dataframe(result_df)
+            st.dataframe(result_df)
 
-        # DOWNLOAD
-        output = BytesIO()
-        result_df.to_excel(output, index=False)
-        output.seek(0)
+            # DOWNLOAD
+            output = BytesIO()
+            result_df.to_excel(output, index=False)
+            output.seek(0)
 
-        st.download_button(
-            "📥 Télécharger le résultat",
-            data=output,
-            file_name="Oversent_Check.xlsx"
-        )
+            st.download_button(
+                "📥 Télécharger Excel",
+                data=output,
+                file_name="Oversent_Check.xlsx"
+            )
+        else:
+            st.warning("⚠️ Aucun résultat trouvé")
 
 else:
     st.info("📌 Upload fichiers pour commencer")
