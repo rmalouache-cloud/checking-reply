@@ -3,18 +3,22 @@ import pandas as pd
 from io import BytesIO
 
 st.set_page_config(layout="wide")
-st.title("📊 Oversent Verification Tool")
+st.title("📊 Oversent Verification Tool (Fast Mode)")
 
 # =========================
 # UPLOAD FILES
 # =========================
 files = st.file_uploader("📂 Upload FRS Files", type=["xlsx"], accept_multiple_files=True)
 
+file_names = [f.name for f in files] if files else []
+
 # =========================
 # GLOBAL INPUT
 # =========================
 model = st.text_input("📌 Model")
 odf = st.text_input("📌 ODF").strip().upper()
+
+selected_file = st.selectbox("📂 Select FRS File", file_names)
 
 # =========================
 # TABLE SIZE
@@ -24,7 +28,7 @@ st.subheader("🧾 Create Your Table")
 num_rows = st.number_input("Number of articles", min_value=1, value=5)
 
 # =========================
-# TABLE (SANS FILE NAME)
+# TABLE
 # =========================
 df_input = pd.DataFrame({
     "PART NO": [""] * num_rows,
@@ -36,69 +40,48 @@ df_input = pd.DataFrame({
 edited_df = st.data_editor(df_input, use_container_width=True)
 
 # =========================
-# FILE SELECT PAR LIGNE
-# =========================
-st.subheader("📂 Select file for each row")
-
-file_selection = []
-
-file_names = [f.name for f in files] if files else []
-
-for i in range(len(edited_df)):
-    selected = st.selectbox(
-        f"File for row {i+1}",
-        file_names,
-        key=f"file_{i}"
-    )
-    file_selection.append(selected)
-
-# =========================
 # PROCESS
 # =========================
 if st.button("▶️ Calculate"):
 
     if not files:
-        st.error("❌ Upload files first")
+        st.error("❌ Upload file first")
         st.stop()
 
-    # LOAD FILES
-    frs_dict = {}
+    if selected_file == "":
+        st.error("❌ Select a file")
+        st.stop()
 
-    for file in files:
-        df = pd.read_excel(file)
-        df.columns = df.columns.str.strip().str.upper()
+    # =========================
+    # LOAD FILE
+    # =========================
+    file_obj = next(f for f in files if f.name == selected_file)
 
-        part_col = next((c for c in df.columns if "PART" in c), None)
-        odf_col = next((c for c in df.columns if "ODF" in c), None)
-        oversent_col = next((c for c in df.columns if "OVERSENT" in c), None)
+    df = pd.read_excel(file_obj)
+    df.columns = df.columns.str.strip().str.upper()
 
-        if part_col:
-            df[part_col] = df[part_col].astype(str).str.strip().str.upper()
+    # AUTO DETECT
+    part_col = next((c for c in df.columns if "PART" in c), None)
+    odf_col = next((c for c in df.columns if "ODF" in c), None)
+    oversent_col = next((c for c in df.columns if "OVERSENT" in c), None)
 
-        if odf_col:
-            df[odf_col] = df[odf_col].astype(str).str.strip().str.upper()
+    # CLEAN
+    df[part_col] = df[part_col].astype(str).str.strip().str.upper()
+    df[odf_col] = df[odf_col].astype(str).str.strip().str.upper()
 
-        df = df.reset_index(drop=True)
-
-        frs_dict[file.name] = {
-            "df": df,
-            "part_col": part_col,
-            "odf_col": odf_col,
-            "oversent_col": oversent_col
-        }
+    df = df.reset_index(drop=True)
 
     results = []
 
     # =========================
     # LOOP
     # =========================
-    for i, row in edited_df.iterrows():
+    for _, row in edited_df.iterrows():
 
         pn = str(row["PART NO"]).strip().upper()
         qty_needed = row["QTY NEEDED"]
         qty_sent = row["QTY SENT"]
         oversent_reply = row["OVERSENT REPLY"]
-        file_name = file_selection[i]
 
         if pn == "":
             continue
@@ -113,22 +96,6 @@ if st.button("▶️ Calculate"):
             "OVERSENT REPLY": oversent_reply,
             "STATUS": ""
         }
-
-        if file_name not in frs_dict:
-            result["STATUS"] = "FILE NOT FOUND"
-            results.append(result)
-            continue
-
-        df_info = frs_dict[file_name]
-        df = df_info["df"]
-        part_col = df_info["part_col"]
-        odf_col = df_info["odf_col"]
-        oversent_col = df_info["oversent_col"]
-
-        if not part_col or not odf_col or not oversent_col:
-            result["STATUS"] = "COLUMN ERROR"
-            results.append(result)
-            continue
 
         same_pn = df[df[part_col] == pn]
 
@@ -146,6 +113,7 @@ if st.button("▶️ Calculate"):
 
         current_idx = matches_odf.index[0]
 
+        # 🔥 LOGIQUE CORRECTE
         previous_rows = same_pn[same_pn.index < current_idx]
 
         if not previous_rows.empty:
@@ -156,9 +124,11 @@ if st.button("▶️ Calculate"):
 
         result["LAST OVERSENT"] = last_oversent
 
+        # CALCUL
         calc = (last_oversent - qty_needed) + qty_sent
         result["CALCULATED OVERSENT"] = calc
 
+        # CHECK
         result["STATUS"] = "OK" if calc == oversent_reply else "NON CONFORME"
 
         results.append(result)
