@@ -161,7 +161,7 @@ if st.session_state.results_df is not None:
 
     def color_status(val):
         if val == "OK":
-            return "background-color: #c6f7c6"
+            return "background-color: #6fd36f"
         elif val == "NON CONFORME":
             return "background-color: #f7c6c6"
         return ""
