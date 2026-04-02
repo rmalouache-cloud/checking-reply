@@ -63,7 +63,13 @@ if st.button("▶️ Calculate"):
     # AUTO DETECT
     part_col = next((c for c in df.columns if "PART" in c), None)
     odf_col = next((c for c in df.columns if "ODF" in c), None)
-    oversent_col = next((c for c in df.columns if "OVERSENT" in c), None)
+
+    # ✅ FIX: force correct column (OVERSENT QTY)
+    oversent_col = next((c for c in df.columns if "OVERSENT QTY" in c), None)
+
+    if oversent_col is None:
+        st.error("❌ Column 'OVERSENT QTY' not found in the file")
+        st.stop()
 
     # CLEAN
     df[part_col] = df[part_col].astype(str).str.strip().str.upper()
@@ -113,18 +119,20 @@ if st.button("▶️ Calculate"):
 
         current_idx = matches_odf.index[0]
 
-        # 🔥 LOGIQUE CORRECTE
+        # 🔥 Take previous rows (before selected ODF)
         previous_rows = same_pn[same_pn.index < current_idx]
 
         if not previous_rows.empty:
             last_row = previous_rows.iloc[-1]
+
+            # ✅ USE CORRECT COLUMN (OVERSENT QTY - column K)
             last_oversent = last_row[oversent_col]
         else:
             last_oversent = 0
 
         result["LAST OVERSENT"] = last_oversent
 
-        # CALCUL
+        # CALCULATION
         calc = (last_oversent - qty_needed) + qty_sent
         result["CALCULATED OVERSENT"] = calc
 
