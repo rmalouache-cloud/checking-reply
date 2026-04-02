@@ -5,7 +5,7 @@ from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Border, Side
 
 st.set_page_config(layout="wide")
-st.title("📊 Oversent Verification Tool ☑️")
+st.title("☑️ Oversent Verification Tool ")
 
 # =========================
 # SESSION STATE INIT
