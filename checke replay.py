@@ -65,17 +65,20 @@ if st.button("▶️ Calculate"):
         # Nettoyage colonnes
         df.columns = df.columns.str.strip().str.upper()
 
-        # 🔥 Détection automatique colonnes
+        # Détection automatique
         part_col = next((c for c in df.columns if "PART" in c), None)
         odf_col = next((c for c in df.columns if "ODF" in c), None)
         oversent_col = next((c for c in df.columns if "OVERSENT" in c), None)
 
-        # Nettoyage contenu
+        # Nettoyage données
         if part_col:
             df[part_col] = df[part_col].astype(str).str.strip().str.upper()
 
         if odf_col:
             df[odf_col] = df[odf_col].astype(str).str.strip().str.upper()
+
+        # Reset index (important)
+        df = df.reset_index(drop=True)
 
         frs_dict[file.name] = {
             "df": df,
@@ -106,7 +109,6 @@ if st.button("▶️ Calculate"):
             "STATUS": ""
         }
 
-        # Vérification fichier
         if file_name not in frs_dict:
             result["STATUS"] = "FILE NOT FOUND"
             results.append(result)
@@ -118,39 +120,41 @@ if st.button("▶️ Calculate"):
         odf_col = df_info["odf_col"]
         oversent_col = df_info["oversent_col"]
 
-        # Vérification colonnes
         if not part_col or not odf_col or not oversent_col:
             result["STATUS"] = "COLUMN ERROR"
             results.append(result)
             continue
 
         # =========================
-        # FIND PN
+        # FIND ALL SAME PN
         # =========================
-        matches = df[df[part_col] == pn]
+        same_pn = df[df[part_col] == pn]
 
-        if matches.empty:
+        if same_pn.empty:
             result["STATUS"] = "PN NOT FOUND"
             results.append(result)
             continue
 
         # =========================
-        # FILTER BY ODF
+        # FIND CURRENT ODF
         # =========================
-        matches_odf = matches[matches[odf_col] == odf]
+        matches_odf = same_pn[same_pn[odf_col] == odf]
 
         if matches_odf.empty:
             result["STATUS"] = "ODF NOT FOUND"
             results.append(result)
             continue
 
-        idx = matches_odf.index[0]
+        current_idx = matches_odf.index[0]
 
         # =========================
-        # GET LAST OVERSENT
+        # 🔥 CORRECT LOGIC FOR LAST OVERSENT
         # =========================
-        if idx > 0:
-            last_oversent = df.iloc[idx - 1][oversent_col]
+        previous_rows = same_pn[same_pn.index < current_idx]
+
+        if not previous_rows.empty:
+            last_row = previous_rows.iloc[-1]
+            last_oversent = last_row[oversent_col]
         else:
             last_oversent = 0
 
@@ -175,14 +179,14 @@ if st.button("▶️ Calculate"):
     # =========================
     # RESULT
     # =========================
-    result_df = pd.DataFrame(results)
+    df_result = pd.DataFrame(results)
 
     st.success("✅ Calculation Finished")
-    st.dataframe(result_df)
+    st.dataframe(df_result)
 
     # DOWNLOAD
     output = BytesIO()
-    result_df.to_excel(output, index=False)
+    df_result.to_excel(output, index=False)
     output.seek(0)
 
     st.download_button(
