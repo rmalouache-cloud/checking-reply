@@ -14,17 +14,38 @@ if "results_df" not in st.session_state:
     st.session_state.results_df = None
 
 # =========================
+# RESET FUNCTION
+# =========================
+def reset_app():
+    st.session_state.results_df = None
+    st.session_state.uploaded_files = None
+    st.session_state.model = ""
+    st.session_state.odf = ""
+    st.rerun()
+
+# =========================
 # UPLOAD FILES
 # =========================
-files = st.file_uploader("📂 Upload FRS Files", type=["xlsx"], accept_multiple_files=True)
+if "uploaded_files" not in st.session_state:
+    st.session_state.uploaded_files = None
+
+files = st.file_uploader(
+    "📂 Upload FRS Files",
+    type=["xlsx"],
+    accept_multiple_files=True,
+    key="file_uploader"
+)
+
+if files:
+    st.session_state.uploaded_files = files
 
 file_names = [f.name for f in files] if files else []
 
 # =========================
 # GLOBAL INPUT
 # =========================
-model = st.text_input("📌 Model")
-odf = st.text_input("📌 ODF").strip().upper()
+model = st.text_input("📌 Model", key="model")
+odf = st.text_input("📌 ODF", key="odf").strip().upper()
 
 selected_file = st.selectbox("📂 Select FRS File", file_names)
 
@@ -60,7 +81,6 @@ if st.button("▶️ Calculate"):
 
     part_col = next((c for c in df.columns if "PART" in c), None)
     odf_col = next((c for c in df.columns if "ODF" in c), None)
-
     oversent_col = next((c for c in df.columns if "OVERSENT QTY" in c), None)
 
     if oversent_col is None:
@@ -133,9 +153,10 @@ if st.button("▶️ Calculate"):
     st.success("✅ Calculation Done")
 
 # =========================
-# DISPLAY RESULT
+# DISPLAY + EXPORT
 # =========================
 if st.session_state.results_df is not None:
+
     df_result = st.session_state.results_df
 
     def color_status(val):
@@ -150,42 +171,46 @@ if st.session_state.results_df is not None:
     st.dataframe(styled_df, use_container_width=True)
 
     # =========================
-    # EXPORT WITH FORMAT
+    # EXPORT WITH HEADER + BORDER FIX
     # =========================
     def export_excel(df):
         wb = Workbook()
         ws = wb.active
 
-        # HEADER
-        ws.append(list(df.columns))
-
-        # STYLE
-        green = PatternFill(start_color="C6F7C6", end_color="C6F7C6", fill_type="solid")
-        red = PatternFill(start_color="F7C6C6", end_color="F7C6C6", fill_type="solid")
-
-        border = Border(
+        thin_border = Border(
             left=Side(style="thin"),
             right=Side(style="thin"),
             top=Side(style="thin"),
             bottom=Side(style="thin")
         )
 
-        for _, row in df.iterrows():
+        green = PatternFill(start_color="C6F7C6", end_color="C6F7C6", fill_type="solid")
+        red = PatternFill(start_color="F7C6C6", end_color="F7C6C6", fill_type="solid")
+
+        # HEADER
+        headers = list(df.columns)
+        ws.append(headers)
+
+        # 🔥 APPLY BORDER TO HEADER
+        for col in range(1, len(headers) + 1):
+            cell = ws.cell(row=1, column=col)
+            cell.border = thin_border
+
+        # DATA
+        for row in df.itertuples(index=False):
             ws.append(list(row))
 
-        # COLOR + BORDER
-        for i, row in enumerate(df_result.itertuples(), start=2):
-            status_cell = ws[f"H{i}"]  # colonne STATUS (ajuste si besoin)
+        # APPLY STYLE (ALL CELLS + HEADER BORDER FIX)
+        for i, row in enumerate(df.itertuples(), start=2):
 
-            if status_cell.value == "OK":
-                fill = green
-            else:
-                fill = red
+            status = row.STATUS
 
-            for col in range(1, len(df.columns) + 1):
+            fill = green if status == "OK" else red
+
+            for col in range(1, len(headers) + 1):
                 cell = ws.cell(row=i, column=col)
                 cell.fill = fill
-                cell.border = border
+                cell.border = thin_border
 
         buffer = BytesIO()
         wb.save(buffer)
@@ -203,6 +228,4 @@ if st.session_state.results_df is not None:
 # =========================
 # RESET BUTTON
 # =========================
-if st.button("🧹 Reset Data"):
-    st.session_state.results_df = None
-    st.success("✅ Data cleared (files kept)")
+st.button("🧹 Reset Data", on_click=reset_app)
