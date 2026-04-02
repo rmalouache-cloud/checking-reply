@@ -3,22 +3,19 @@ import pandas as pd
 from io import BytesIO
 
 st.set_page_config(layout="wide")
-st.title("📊 Oversent Calculation Tool (Stable Version)")
+st.title("📊 Oversent Verification Tool")
 
 # =========================
-# 1. UPLOAD FILES
+# UPLOAD FILES
 # =========================
 files = st.file_uploader("📂 Upload FRS Files", type=["xlsx"], accept_multiple_files=True)
 
 # =========================
-# 2. MODEL + ODF
+# INPUTS
 # =========================
-model = st.text_input("📌 Enter Model Name")
-odf = st.text_input("📌 Enter ODF").strip().upper()
+model = st.text_input("📌 Model")
+odf = st.text_input("📌 ODF").strip().upper()
 
-# =========================
-# 3. USER INPUT
-# =========================
 st.subheader("✍️ Enter Data")
 
 num_rows = st.number_input("Number of items", min_value=1, value=1)
@@ -26,7 +23,6 @@ num_rows = st.number_input("Number of items", min_value=1, value=1)
 data = []
 
 for i in range(num_rows):
-
     st.markdown(f"### Item {i+1}")
 
     pn = st.text_input(f"PN {i+1}", key=f"pn_{i}")
@@ -51,33 +47,45 @@ for i in range(num_rows):
 # =========================
 # PROCESS
 # =========================
-if st.button("▶️ Calculate Oversent"):
+if st.button("▶️ Calculate"):
 
     if not files:
-        st.error("❌ Please upload files")
+        st.error("❌ Upload files first")
         st.stop()
 
     results = []
-
-    # =========================
-    # LOAD FILES
-    # =========================
     frs_dict = {}
 
+    # =========================
+    # LOAD FRS FILES
+    # =========================
     for file in files:
         df = pd.read_excel(file)
+
+        # Nettoyage colonnes
         df.columns = df.columns.str.strip().str.upper()
 
-        # Nettoyage
-        if "PART No." in df.columns:
-            df["PART No."] = df["PART No."].astype(str).str.strip().str.upper()
-        if "ODF" in df.columns:
-            df["ODF"] = df["ODF"].astype(str).str.strip().str.upper()
+        # 🔥 Détection automatique colonnes
+        part_col = next((c for c in df.columns if "PART" in c), None)
+        odf_col = next((c for c in df.columns if "ODF" in c), None)
+        oversent_col = next((c for c in df.columns if "OVERSENT" in c), None)
 
-        frs_dict[file.name] = df
+        # Nettoyage contenu
+        if part_col:
+            df[part_col] = df[part_col].astype(str).str.strip().str.upper()
+
+        if odf_col:
+            df[odf_col] = df[odf_col].astype(str).str.strip().str.upper()
+
+        frs_dict[file.name] = {
+            "df": df,
+            "part_col": part_col,
+            "odf_col": odf_col,
+            "oversent_col": oversent_col
+        }
 
     # =========================
-    # PROCESS ITEMS
+    # PROCESS EACH ITEM
     # =========================
     for item in data:
 
@@ -98,25 +106,28 @@ if st.button("▶️ Calculate Oversent"):
             "STATUS": ""
         }
 
-        # =========================
-        # VALIDATIONS
-        # =========================
+        # Vérification fichier
         if file_name not in frs_dict:
             result["STATUS"] = "FILE NOT FOUND"
             results.append(result)
             continue
 
-        df = frs_dict[file_name]
+        df_info = frs_dict[file_name]
+        df = df_info["df"]
+        part_col = df_info["part_col"]
+        odf_col = df_info["odf_col"]
+        oversent_col = df_info["oversent_col"]
 
-        if "PART No." not in df.columns or "ODF" not in df.columns:
-            result["STATUS"] = "MISSING COLUMNS"
+        # Vérification colonnes
+        if not part_col or not odf_col or not oversent_col:
+            result["STATUS"] = "COLUMN ERROR"
             results.append(result)
             continue
 
         # =========================
         # FIND PN
         # =========================
-        matches = df[df["PART No."] == pn]
+        matches = df[df[part_col] == pn]
 
         if matches.empty:
             result["STATUS"] = "PN NOT FOUND"
@@ -124,9 +135,9 @@ if st.button("▶️ Calculate Oversent"):
             continue
 
         # =========================
-        # FILTER ODF
+        # FILTER BY ODF
         # =========================
-        matches_odf = matches[matches["ODF"] == odf]
+        matches_odf = matches[matches[odf_col] == odf]
 
         if matches_odf.empty:
             result["STATUS"] = "ODF NOT FOUND"
@@ -138,8 +149,8 @@ if st.button("▶️ Calculate Oversent"):
         # =========================
         # GET LAST OVERSENT
         # =========================
-        if "OVERSENT QTY" in df.columns and idx > 0:
-            last_oversent = df.iloc[idx - 1]["OVERSENT QTY"]
+        if idx > 0:
+            last_oversent = df.iloc[idx - 1][oversent_col]
         else:
             last_oversent = 0
 
@@ -162,22 +173,20 @@ if st.button("▶️ Calculate Oversent"):
         results.append(result)
 
     # =========================
-    # RESULT TABLE
+    # RESULT
     # =========================
     result_df = pd.DataFrame(results)
 
-    st.success("✅ Calculation Completed")
+    st.success("✅ Calculation Finished")
     st.dataframe(result_df)
 
-    # =========================
     # DOWNLOAD
-    # =========================
     output = BytesIO()
     result_df.to_excel(output, index=False)
     output.seek(0)
 
     st.download_button(
-        "📥 Download Result",
+        "📥 Download Excel",
         data=output,
-        file_name="oversent_result.xlsx"
+        file_name="Oversent_Result.xlsx"
     )
