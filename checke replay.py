@@ -69,8 +69,8 @@ if st.button("▶️ Calculate Oversent"):
         df.columns = df.columns.str.strip().str.upper()
 
         # Nettoyage
-        if "PART N" in df.columns:
-            df["PART N"] = df["PART N"].astype(str).str.strip().str.upper()
+        if "PART No." in df.columns:
+            df["PART No."] = df["PART No."].astype(str).str.strip().str.upper()
         if "ODF" in df.columns:
             df["ODF"] = df["ODF"].astype(str).str.strip().str.upper()
 
@@ -108,7 +108,7 @@ if st.button("▶️ Calculate Oversent"):
 
         df = frs_dict[file_name]
 
-        if "PART N" not in df.columns or "ODF" not in df.columns:
+        if "PART No." not in df.columns or "ODF" not in df.columns:
             result["STATUS"] = "MISSING COLUMNS"
             results.append(result)
             continue
@@ -116,7 +116,7 @@ if st.button("▶️ Calculate Oversent"):
         # =========================
         # FIND PN
         # =========================
-        matches = df[df["PART N"] == pn]
+        matches = df[df["PART No."] == pn]
 
         if matches.empty:
             result["STATUS"] = "PN NOT FOUND"
