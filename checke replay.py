@@ -1,231 +1,228 @@
 import streamlit as st
 import pandas as pd
-from io import BytesIO
-from openpyxl import Workbook
-from openpyxl.styles import PatternFill, Border, Side
-
-st.set_page_config(layout="wide")
-st.title("☑️ Oversent Verification Tool ")
+import matplotlib.pyplot as plt
+from PIL import Image
+from fpdf import FPDF
+import tempfile
 
 # =========================
-# SESSION STATE INIT
+# CONFIG
 # =========================
-if "results_df" not in st.session_state:
-    st.session_state.results_df = None
-
-# =========================
-# RESET FUNCTION
-# =========================
-def reset_app():
-    st.session_state.results_df = None
-    st.session_state.uploaded_files = None
-    st.session_state.model = ""
-    st.session_state.odf = ""
-    st.rerun()
+st.set_page_config(page_title="Container Dashboard", layout="wide")
 
 # =========================
-# UPLOAD FILES
+# LOGOS + HEADER
 # =========================
-if "uploaded_files" not in st.session_state:
-    st.session_state.uploaded_files = None
+container_logo = Image.open("conteneur_logo.png")
+stream_logo = Image.open("stream_logo.png")
 
-files = st.file_uploader(
-    "📂 Upload FRS Files",
-    type=["xlsx"],
-    accept_multiple_files=True,
-    key="file_uploader"
-)
+col1, col2, col3 = st.columns([1, 5, 1])
 
-if files:
-    st.session_state.uploaded_files = files
+with col1:
+    st.image(container_logo, width=400)
 
-file_names = [f.name for f in files] if files else []
+with col2:
+    st.title(" Container Filling Industrial Dashboard")
+    st.caption("Supply Chain Analysis - BOM & Packing Control")
 
-# =========================
-# GLOBAL INPUT
-# =========================
-model = st.text_input("📌 Model", key="model")
-odf = st.text_input("📌 ODF", key="odf").strip().upper()
-
-selected_file = st.selectbox("📂 Select FRS File", file_names)
+with col3:
+    st.image(stream_logo, width=800)
 
 # =========================
-# TABLE SIZE
+# 📝 STUDY INPUT (NEW)
 # =========================
-st.subheader("🧾 Create Your Table")
+st.subheader("📝 Study Information")
 
-num_rows = st.number_input("Number of articles", min_value=1, value=5)
+colA, colB, colC = st.columns(3)
 
-df_input = pd.DataFrame({
-    "PART NO": [""] * num_rows,
-    "QTY NEEDED": [0] * num_rows,
-    "QTY SENT": [0] * num_rows,
-    "OVERSENT REPLY": [0] * num_rows
-})
-
-edited_df = st.data_editor(df_input, use_container_width=True)
-
-# =========================
-# PROCESS
-# =========================
-if st.button("▶️ Calculate"):
-
-    if not files:
-        st.error("❌ Upload file first")
-        st.stop()
-
-    file_obj = next(f for f in files if f.name == selected_file)
-
-    df = pd.read_excel(file_obj)
-    df.columns = df.columns.str.strip().str.upper()
-
-    part_col = next((c for c in df.columns if "PART" in c), None)
-    odf_col = next((c for c in df.columns if "ODF" in c), None)
-    oversent_col = next((c for c in df.columns if "OVERSENT QTY" in c), None)
-
-    if oversent_col is None:
-        st.error("❌ Column 'OVERSENT QTY' not found")
-        st.stop()
-
-    df[part_col] = df[part_col].astype(str).str.strip().str.upper()
-    df[odf_col] = df[odf_col].astype(str).str.strip().str.upper()
-
-    df = df.reset_index(drop=True)
-
-    results = []
-
-    for _, row in edited_df.iterrows():
-
-        pn = str(row["PART NO"]).strip().upper()
-        qty_needed = row["QTY NEEDED"]
-        qty_sent = row["QTY SENT"]
-        oversent_reply = row["OVERSENT REPLY"]
-
-        if pn == "":
-            continue
-
-        result = {
-            "MODEL": model,
-            "PART NO": pn,
-            "LAST OVERSENT": None,
-            "QTY NEEDED": qty_needed,
-            "QTY SENT": qty_sent,
-            "CALCULATED OVERSENT": None,
-            "OVERSENT REPLY": oversent_reply,
-            "STATUS": ""
-        }
-
-        same_pn = df[df[part_col] == pn]
-
-        if same_pn.empty:
-            result["STATUS"] = "PN NOT FOUND"
-            results.append(result)
-            continue
-
-        matches_odf = same_pn[same_pn[odf_col] == odf]
-
-        if matches_odf.empty:
-            result["STATUS"] = "ODF NOT FOUND"
-            results.append(result)
-            continue
-
-        current_idx = matches_odf.index[0]
-
-        previous_rows = same_pn[same_pn.index < current_idx]
-
-        if not previous_rows.empty:
-            last_row = previous_rows.iloc[-1]
-            last_oversent = last_row[oversent_col]
-        else:
-            last_oversent = 0
-
-        result["LAST OVERSENT"] = last_oversent
-
-        calc = (last_oversent - qty_needed) + qty_sent
-        result["CALCULATED OVERSENT"] = calc
-
-        result["STATUS"] = "OK" if calc == oversent_reply else "NON CONFORME"
-
-        results.append(result)
-
-    st.session_state.results_df = pd.DataFrame(results)
-
-    st.success("✅ Calculation Done")
-
-# =========================
-# DISPLAY + EXPORT
-# =========================
-if st.session_state.results_df is not None:
-
-    df_result = st.session_state.results_df
-
-    def color_status(val):
-        if val == "OK":
-            return "background-color: #6fd36f"
-        elif val == "NON CONFORME":
-            return "background-color: #f7c6c6"
-        return ""
-
-    styled_df = df_result.style.map(color_status, subset=["STATUS"])
-
-    st.dataframe(styled_df, use_container_width=True)
-
-    # =========================
-    # EXPORT WITH HEADER + BORDER FIX
-    # =========================
-    def export_excel(df):
-        wb = Workbook()
-        ws = wb.active
-
-        thin_border = Border(
-            left=Side(style="thin"),
-            right=Side(style="thin"),
-            top=Side(style="thin"),
-            bottom=Side(style="thin")
-        )
-
-        green = PatternFill(start_color="C6F7C6", end_color="C6F7C6", fill_type="solid")
-        red = PatternFill(start_color="F7C6C6", end_color="F7C6C6", fill_type="solid")
-
-        # HEADER
-        headers = list(df.columns)
-        ws.append(headers)
-
-        # 🔥 APPLY BORDER TO HEADER
-        for col in range(1, len(headers) + 1):
-            cell = ws.cell(row=1, column=col)
-            cell.border = thin_border
-
-        # DATA
-        for row in df.itertuples(index=False):
-            ws.append(list(row))
-
-        # APPLY STYLE (ALL CELLS + HEADER BORDER FIX)
-        for i, row in enumerate(df.itertuples(), start=2):
-
-            status = row.STATUS
-
-            fill = green if status == "OK" else red
-
-            for col in range(1, len(headers) + 1):
-                cell = ws.cell(row=i, column=col)
-                cell.fill = fill
-                cell.border = thin_border
-
-        buffer = BytesIO()
-        wb.save(buffer)
-        buffer.seek(0)
-        return buffer
-
-    output = export_excel(df_result)
-
-    st.download_button(
-        "📥 Download Result",
-        data=output,
-        file_name="Oversent_Result.xlsx"
+with colA:
+    packing_type = st.selectbox(
+        "Type of Packing List",
+        ["Panel", "SP", "SP/MainBoard", "OC"]
     )
 
+with colB:
+    model = st.text_input("Model (ex: Mini LED)")
+
+with colC:
+    odf = st.text_input("ODF (ex: IDL2500)")
+
 # =========================
-# RESET BUTTON
+# 📘 USER GUIDE (FR + EN)
 # =========================
-st.button("🧹 Reset Data", on_click=reset_app)
+with st.expander("📘 Manuel d'utilisation / User Guide"):
+
+    st.markdown("""
+# 🇫🇷 Manuel d'utilisation
+...
+""")
+
+# =========================
+# UPLOAD FILE
+# =========================
+file = st.file_uploader("Upload Packing Excel file", type=["xlsx"])
+
+if file is not None:
+
+    # =========================
+    # DYNAMIC TITLE (NEW)
+    # =========================
+    custom_title = f"Container Filling Industrial Dashboard of {packing_type} of {model}__{odf}"
+
+    # OPTIONNEL (affichage dans app)
+    st.markdown(f"### 📌 {custom_title}")
+
+    df = pd.read_excel(file)
+    df.columns = df.columns.str.strip()
+
+    st.write("📄 Data Preview")
+    st.dataframe(df)
+
+    # =========================
+    # DETECT CBM COLUMN
+    # =========================
+    cbm_col = None
+    for col in df.columns:
+        if "CBM" in col.upper():
+            cbm_col = col
+            break
+
+    if cbm_col is None:
+        st.error("❌ CBM column not found")
+    else:
+
+        # =========================
+        # GROUP BY CONTAINER
+        # =========================
+        summary = df.groupby(
+            ["CONTAINER NO", "CTNER.SIZE"], as_index=False
+        ).agg({cbm_col: "sum"})
+
+        summary.rename(columns={cbm_col: "TOTAL_VOLUME"}, inplace=True)
+
+        # =========================
+        # CAPACITY
+        # =========================
+        capacity_map = {
+            "20GP": 33,
+            "40GP": 67,
+            "40HQ": 76
+        }
+
+        summary["CAPACITY"] = summary["CTNER.SIZE"].map(capacity_map)
+
+        # =========================
+        # CALCULATION
+        # =========================
+        summary["FILL_RATE_%"] = summary["TOTAL_VOLUME"] * 100 / summary["CAPACITY"]
+
+        # =========================
+        # STATUS
+        # =========================
+        summary["STATUS"] = summary["FILL_RATE_%"].apply(
+            lambda x: "OK" if x >= 70 else "NON CONFORME"
+        )
+
+        # =========================
+        # STREAMLIT TABLE (COLOR STATUS)
+        # =========================
+        def color_status(val):
+            if val == "OK":
+                return "background-color: lightgreen"
+            else:
+                return "background-color: lightcoral"
+
+        styled = summary.style.map(color_status, subset=["STATUS"])
+
+        st.subheader("📊 Result Table")
+        st.write(styled)
+
+        # =========================
+        # CHART
+        # =========================
+        st.subheader("📈 Filling Rate Chart")
+
+        fig, ax = plt.subplots(figsize=(7, 3))
+
+        ax.bar(summary["CONTAINER NO"], summary["FILL_RATE_%"])
+        ax.axhline(70, linestyle="--", color="red")
+
+        ax.set_ylabel("Filling Rate %")
+        ax.set_xlabel("Container")
+        ax.set_title("Container Filling Rate")
+
+        plt.xticks(rotation=45, ha='right')
+
+        st.pyplot(fig)
+
+        # =========================
+        # EXPORT EXCEL
+        # =========================
+        excel_file = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+        summary.to_excel(excel_file.name, index=False)
+
+        st.download_button(
+            label="📥 Download Excel Result",
+            data=open(excel_file.name, "rb"),
+            file_name="container_analysis.xlsx"
+        )
+
+        # =========================
+        # EXPORT PDF
+        # =========================
+        chart_path = tempfile.NamedTemporaryFile(delete=False, suffix=".png").name
+        fig.savefig(chart_path, bbox_inches="tight")
+
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", "B", 14)
+
+        # ✅ TITRE DYNAMIQUE
+        pdf.cell(200, 10, txt=custom_title, ln=True, align="C")
+        pdf.ln(5)
+
+        pdf.set_font("Arial", "B", 9)
+
+        headers = [
+            "CONTAINER NO",
+            "SIZE",
+            "TOTAL_VOL",
+            "CAPACITY",
+            "FILL_RATE %",
+            "STATUS"
+        ]
+
+        col_widths = [35, 20, 30, 25, 25, 30]
+
+        for i, h in enumerate(headers):
+            pdf.cell(col_widths[i], 8, h, border=1, align="C")
+        pdf.ln()
+
+        pdf.set_font("Arial", size=9)
+
+        for i, row in summary.iterrows():
+            pdf.cell(col_widths[0], 8, str(row["CONTAINER NO"]), border=1)
+            pdf.cell(col_widths[1], 8, str(row["CTNER.SIZE"]), border=1)
+            pdf.cell(col_widths[2], 8, f"{row['TOTAL_VOLUME']:.2f}", border=1)
+            pdf.cell(col_widths[3], 8, str(row["CAPACITY"]), border=1)
+            pdf.cell(col_widths[4], 8, f"{row['FILL_RATE_%']:.2f}%", border=1)
+            pdf.cell(col_widths[5], 8, str(row["STATUS"]), border=1)
+            pdf.ln()
+
+        pdf.ln(5)
+        pdf.set_font("Arial", "B", 11)
+        pdf.cell(200, 10, txt="Filling Rate Chart", ln=True)
+
+        pdf.image(chart_path, w=180)
+
+        pdf_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+        pdf.output(pdf_file.name)
+
+        with open(pdf_file.name, "rb") as f:
+            st.download_button(
+                label="📄 Download PDF Dashboard",
+                data=f,
+                file_name="container_dashboard.pdf"
+            )
+
+        st.success("✅ Analysis completed successfully")
