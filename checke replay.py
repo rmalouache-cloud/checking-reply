@@ -11,25 +11,7 @@ import tempfile
 st.set_page_config(page_title="Container Dashboard", layout="wide")
 
 # =========================
-# LOGOS + HEADER
-# =========================
-container_logo = Image.open("conteneur_logo.png")
-stream_logo = Image.open("stream_logo.png")
-
-col1, col2, col3 = st.columns([1, 5, 1])
-
-with col1:
-    st.image(container_logo, width=400)
-
-with col2:
-    st.title(" Container Filling Industrial Dashboard")
-    st.caption("Supply Chain Analysis - BOM & Packing Control")
-
-with col3:
-    st.image(stream_logo, width=800)
-
-# =========================
-# 📝 STUDY INPUT (VISIBLE)
+# 📝 STUDY INPUT (FORCED DISPLAY)
 # =========================
 st.subheader("📝 Study Information")
 
@@ -46,6 +28,24 @@ with colB:
 
 with colC:
     odf = st.text_input("ODF (ex: IDL2500)")
+
+# =========================
+# LOGOS + HEADER
+# =========================
+container_logo = Image.open("conteneur_logo.png")
+stream_logo = Image.open("stream_logo.png")
+
+col1, col2, col3 = st.columns([1, 5, 1])
+
+with col1:
+    st.image(container_logo, width=400)
+
+with col2:
+    st.title(" Container Filling Industrial Dashboard")
+    st.caption("Supply Chain Analysis - BOM & Packing Control")
+
+with col3:
+    st.image(stream_logo, width=800)
 
 # =========================
 # 📘 USER GUIDE (FR + EN)
