@@ -15,13 +15,20 @@ if "odf" not in st.session_state:
     st.session_state.odf = ""
 
 # =========================
-# 📦 DASHBOARD TITLE
+# 📦 DASHBOARD TITLE (TOUJOURS EN HAUT)
 # =========================
 
-st.markdown("### 📦 Container Filling Industrial Dashboard")
+if st.session_state.model and st.session_state.odf:
+    title = f"Container Filling Industrial Dashboard of {st.session_state.packing_type} of {st.session_state.model}__{st.session_state.odf}"
+else:
+    title = "Container Filling Industrial Dashboard"
+
+st.title(title)
+
+st.markdown("---")
 
 # =========================
-# 🎯 INPUT FIELDS
+# 🎯 INPUT FIELDS (TOUJOURS VISIBLES)
 # =========================
 
 packing_type = st.selectbox(
@@ -40,17 +47,6 @@ odf = st.text_input(
     key="odf"
 )
 
-# =========================
-# 🏷️ DYNAMIC TITLE
-# =========================
-
-if st.session_state.model and st.session_state.odf:
-    title = f"Container Filling Industrial Dashboard of {st.session_state.packing_type} of {st.session_state.model}__{st.session_state.odf}"
-else:
-    title = "Container Filling Industrial Dashboard"
-
-st.title(title)
-
 st.markdown("---")
 
 # =========================
@@ -62,7 +58,7 @@ uploaded_file = st.file_uploader(
     type=["xlsx", "xls"]
 )
 
-if uploaded_file is not None:
+if uploaded_file:
     try:
         df = pd.read_excel(uploaded_file)
 
@@ -70,13 +66,8 @@ if uploaded_file is not None:
 
         st.dataframe(df)
 
-        # 👉 PLACE FOR YOUR MAIN LOGIC
+        # 👉 TA LOGIQUE ICI
         st.info("Main logic will be executed here")
 
     except Exception as e:
         st.error(f"Error reading file: {e}")
-
-# =========================
-# 🔧 YOUR LOGIC HERE
-# =========================
-# Tu peux ajouter ton code existant ici sans modification majeure
