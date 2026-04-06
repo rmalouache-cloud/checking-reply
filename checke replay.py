@@ -29,7 +29,7 @@ with col3:
     st.image(stream_logo, width=800)
 
 # =========================
-# 📝 STUDY INPUT (NEW)
+# 📝 STUDY INPUT (VISIBLE)
 # =========================
 st.subheader("📝 Study Information")
 
@@ -54,7 +54,48 @@ with st.expander("📘 Manuel d'utilisation / User Guide"):
 
     st.markdown("""
 # 🇫🇷 Manuel d'utilisation
-...
+
+### 🎯 Objectif
+Analyser le taux de remplissage des conteneurs à partir d’un fichier Excel.
+
+### 📂 Format requis
+- CONTAINER NO  
+- CTNER.SIZE (20GP, 40GP, 40HQ)  
+- CBM  
+
+### 🚀 Étapes
+1. Upload fichier Excel  
+2. Vérifier les données  
+3. Lire les résultats  
+4. Visualiser graphique  
+5. Télécharger Excel ou PDF  
+
+### 📏 Règles
+- 20GP → 33  
+- 40GP → 67  
+- 40HQ → 76  
+
+👉 OK ≥ 70%  
+👉 NON CONFORME < 70%  
+
+---
+
+# 🇬🇧 User Guide
+
+### 🎯 Purpose
+Analyze container filling rate from an Excel file.
+
+### 📂 Required columns
+- CONTAINER NO  
+- CTNER.SIZE  
+- CBM  
+
+### 🚀 Steps
+1. Upload Excel file  
+2. Check preview  
+3. Analyze results  
+4. View chart  
+5. Download Excel/PDF  
 """)
 
 # =========================
@@ -64,16 +105,15 @@ file = st.file_uploader("Upload Packing Excel file", type=["xlsx"])
 
 if file is not None:
 
+    df = pd.read_excel(file)
+    df.columns = df.columns.str.strip()
+
     # =========================
-    # DYNAMIC TITLE (NEW)
+    # DYNAMIC TITLE
     # =========================
     custom_title = f"Container Filling Industrial Dashboard of {packing_type} of {model}__{odf}"
 
-    # OPTIONNEL (affichage dans app)
     st.markdown(f"### 📌 {custom_title}")
-
-    df = pd.read_excel(file)
-    df.columns = df.columns.str.strip()
 
     st.write("📄 Data Preview")
     st.dataframe(df)
@@ -124,7 +164,7 @@ if file is not None:
         )
 
         # =========================
-        # STREAMLIT TABLE (COLOR STATUS)
+        # COLOR TABLE
         # =========================
         def color_status(val):
             if val == "OK":
@@ -177,7 +217,7 @@ if file is not None:
         pdf.add_page()
         pdf.set_font("Arial", "B", 14)
 
-        # ✅ TITRE DYNAMIQUE
+        # ✅ TITLE DYNAMIQUE
         pdf.cell(200, 10, txt=custom_title, ln=True, align="C")
         pdf.ln(5)
 
