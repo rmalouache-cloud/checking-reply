@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import io
+import numpy as np
 
 # Configuration de la page
 st.set_page_config(
@@ -123,8 +124,15 @@ def get_oversent_from_stock(df_stock, part_n, idl):
     if part_n_prec != part_n_clean:
         raise ValueError(f"ERREUR INTERNE: Part N précédent différent: '{part_n_prec}'")
     
-    # Extraire la colonne K (index 10) = OVERSENT QTY
-    oversent_stock = pd.to_numeric(ligne_prec.iloc[10], errors='coerce').fillna(0)
+    # === ÉTAPE 5: Extraire la colonne K (index 10) = OVERSENT QTY ===
+    # Récupérer la valeur et la convertir en float
+    oversent_value = ligne_prec.iloc[10]
+    
+    # Convertir en nombre (gérer les différents types)
+    try:
+        oversent_stock = float(oversent_value) if pd.notna(oversent_value) else 0.0
+    except (ValueError, TypeError):
+        oversent_stock = 0.0
     
     return oversent_stock
 
@@ -156,16 +164,16 @@ def verifier_modele(df_feuille, nom_modele, idl, dict_stocks):
     for idx, (index_ligne, ligne) in enumerate(df_filtre.iterrows()):
         # Mise à jour progression
         progress_bar.progress((idx + 1) / len(df_filtre))
-        status_text.text(f"Traitement: {ligne['Part_N'][:50]}...")
+        status_text.text(f"Traitement: {str(ligne['Part_N'])[:50]}...")
         
         # Extraire les données
-        part_n = ligne['Part_N']
-        description = ligne['Description'] if pd.notna(ligne['Description']) else ""
-        qty_for = ligne['Qty_for']
-        packing_qty = ligne['Packing_list_qty']
-        oversent_frs = ligne['Oversent_FRS']
-        nom_fichier_stock = ligne['Moka_reply']
-        remarks = ligne['Remarks']
+        part_n = str(ligne['Part_N'])
+        description = str(ligne['Description']) if pd.notna(ligne['Description']) else ""
+        qty_for = float(ligne['Qty_for']) if pd.notna(ligne['Qty_for']) else 0.0
+        packing_qty = float(ligne['Packing_list_qty']) if pd.notna(ligne['Packing_list_qty']) else 0.0
+        oversent_frs = float(ligne['Oversent_FRS']) if pd.notna(ligne['Oversent_FRS']) else 0.0
+        nom_fichier_stock = str(ligne['Moka_reply'])
+        remarks = str(ligne['Remarks'])
         
         # Nettoyer le nom du fichier stock
         nom_fichier_stock = nom_fichier_stock.replace('.xlsx', '').replace('.xls', '')
@@ -209,17 +217,17 @@ def verifier_modele(df_feuille, nom_modele, idl, dict_stocks):
             # Afficher le résultat
             if est_correct:
                 status = "✅ CORRECT"
-                st.success(f"  ✅ {part_n[:40]}...")
+                st.success(f"  ✅ {part_n[:40]}")
             else:
                 status = "❌ INCORRECT"
-                st.error(f"  ❌ {part_n[:40]}... | Écart={ecart:.2f}")
+                st.error(f"  ❌ {part_n[:40]} | FRS={oversent_frs} | Calc={oversent_reel:.2f} | Écart={ecart:.2f}")
             
             # Ajouter au rapport
             resultats.append({
                 'Modèle': nom_modele,
                 'IDL utilisé': idl,
                 'Part N': part_n,
-                'Description': description,
+                'Description': description[:50],
                 'Remarks': remarks,
                 'Qty for (col E)': qty_for,
                 'Packing list qty (col D)': packing_qty,
@@ -236,11 +244,11 @@ def verifier_modele(df_feuille, nom_modele, idl, dict_stocks):
             resultats.append({
                 'Modèle': nom_modele,
                 'Part N': part_n,
-                'Description': description,
+                'Description': description[:50],
                 'Remarks': remarks,
                 'Status': f'❌ {str(e)[:80]}',
             })
-            st.error(f"  ❌ {part_n[:40]}...: {str(e)[:100]}")
+            st.error(f"  ❌ {part_n[:40]}: {str(e)[:100]}")
     
     progress_bar.empty()
     status_text.empty()
