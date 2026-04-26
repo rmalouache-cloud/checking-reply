@@ -12,8 +12,10 @@ st.set_page_config(
 st.title("✅ Vérification des Réponses Fournisseur")
 st.markdown("---")
 
+# ==================== FONCTIONS PRINCIPALES ====================
+
 def charger_toutes_les_feuilles_reply(uploaded_file):
-    """Charge toutes les feuilles du fichier reply.xlsx uploadé"""
+    """Charge toutes les feuilles du fichier reply.xlsx"""
     try:
         xlsx = pd.ExcelFile(uploaded_file)
         feuilles = {}
@@ -21,11 +23,11 @@ def charger_toutes_les_feuilles_reply(uploaded_file):
             feuilles[sheet_name] = pd.read_excel(uploaded_file, sheet_name=sheet_name)
         return feuilles
     except Exception as e:
-        st.error(f"Erreur: {str(e)}")
+        st.error(f"Erreur chargement reply.xlsx: {str(e)}")
         return None
 
 def charger_stocks_depuis_upload(uploaded_files):
-    """Charge les fichiers stocks uploadés"""
+    """Charge tous les fichiers stocks"""
     stocks = {}
     if uploaded_files:
         for uploaded_file in uploaded_files:
@@ -35,305 +37,485 @@ def charger_stocks_depuis_upload(uploaded_files):
                 st.error(f"Erreur chargement {uploaded_file.name}: {str(e)}")
     return stocks
 
+def extraire_colonnes_position(df):
+    """
+    Extrait les colonnes par position (E, F, G, H)
+    et crée un DataFrame standardisé
+    """
+    df_copy = df.copy()
+    
+    # Déterminer les colonnes par position
+    if len(df_copy.columns) >= 8:
+        # Colonne E (index 4) = Qty for
+        # Colonne F (index 5) = Packing list qty
+        # Colonne G (index 6) = Remarks
+        # Colonne H (index 7) = Moka reply
+        
+        df_copy['Qty_for'] = df_copy.iloc[:, 4]
+        df_copy['Packing_list_qty'] = df_copy.iloc[:, 5]
+        df_copy['Remarks'] = df_copy.iloc[:, 6].astype(str).str.strip()
+        df_copy['Moka_reply'] = df_copy.iloc[:, 7].astype(str).str.strip()
+        
+        # Colonne B (index 1) = Part N (généralement)
+        df_copy['Part_N'] = df_copy.iloc[:, 1].astype(str).str.strip()
+        
+        # Colonne C (index 2) = Description (généralement)
+        df_copy['Description'] = df_copy.iloc[:, 2].astype(str).str.strip() if len(df_copy.columns) > 2 else ""
+        
+        # Colonne pour Oversent FRS (chercher dans les colonnes)
+        col_oversent = None
+        for col in df_copy.columns:
+            if 'oversent' in str(col).lower():
+                col_oversent = col
+                break
+        if col_oversent is None:
+            col_oversent = df_copy.columns[8] if len(df_copy.columns) > 8 else df_copy.columns[0]
+        
+        df_copy['Oversent_FRS'] = df_copy[col_oversent]
+        
+        return df_copy
+    else:
+        st.error(f"Fichier a seulement {len(df_copy.columns)} colonnes, besoin de 8 minimum")
+        return None
+
 def get_oversent_from_stock(df_stock, part_n, idl):
-    """Trouve l'IDL et retourne la valeur de la ligne précédente"""
-    # Chercher la colonne Part N
+    """
+    Dans le fichier stock:
+    - Filtre par Part N
+    - Trouve l'IDL dans colonne A
+    - Retourne la valeur colonne K de la ligne précédente
+    """
+    # Trouver la colonne Part N dans le stock
     col_part_n = None
     for col in df_stock.columns:
-        if 'part' in col.lower() or 'pn' in col.lower() or 'part number' in col.lower():
+        if 'part' in str(col).lower() or 'pn' in str(col).lower():
             col_part_n = col
             break
     
     if col_part_n is None:
-        col_part_n = df_stock.columns[0]
+        # Si non trouvé, utiliser colonne B (index 1)
+        col_part_n = df_stock.columns[1] if len(df_stock.columns) > 1 else df_stock.columns[0]
     
     # Filtrer par Part N
-    df_filtered = df_stock[df_stock[col_part_n].astype(str).str.strip() == str(part_n).strip()]
+    mask_part = df_stock[col_part_n].astype(str).str.strip() == str(part_n).strip()
+    df_filtered = df_stock[mask_part]
     
     if df_filtered.empty:
-        raise ValueError(f"Part N {part_n} non trouvé")
+        raise ValueError(f"Part N '{part_n}' non trouvé dans le stock")
     
     # Chercher l'IDL dans colonne A (ODF)
-    col_odf = df_stock.columns[0]
-    mask = df_filtered[col_odf].astype(str).str.strip() == str(idl).strip()
-    idx = df_filtered[mask].index
+    col_odf = df_stock.columns[0]  # Colonne A
+    
+    mask_idl = df_filtered[col_odf].astype(str).str.strip() == str(idl).strip()
+    idx = df_filtered[mask_idl].index
     
     if len(idx) == 0:
-        raise ValueError(f"IDL {idl} non trouvé")
+        # Afficher les IDL disponibles pour déboguer
+        idl_disponibles = df_filtered[col_odf].astype(str).str.strip().tolist()
+        raise ValueError(f"IDL '{idl}' non trouvé. IDL disponibles: {idl_disponibles[:5]}")
     
     ligne_idl = idx[0]
     
     if ligne_idl == 0:
-        raise ValueError(f"IDL à la première ligne")
+        raise ValueError(f"L'IDL {idl} est à la première ligne, pas de ligne précédente")
     
+    # Vérifier que la ligne précédente a le même Part N
     ligne_prec = ligne_idl - 1
+    part_n_prec = str(df_stock.iloc[ligne_prec][col_part_n]).strip()
     
-    # Extraire colonne K (index 10)
+    if part_n_prec != str(part_n).strip():
+        raise ValueError(f"Ligne précédente a un Part N différent: {part_n_prec}")
+    
+    # Extraire la colonne K (index 10) = OVERSENT QTY
     if df_stock.shape[1] > 10:
-        oversent_precedent = df_stock.iloc[ligne_prec, 10]
+        oversent_stock = df_stock.iloc[ligne_prec, 10]
     else:
-        oversent_precedent = df_stock.iloc[ligne_prec, -1]
+        # Si pas de colonne K, utiliser la dernière colonne
+        oversent_stock = df_stock.iloc[ligne_prec, -1]
+        st.warning(f"Colonne K (index 10) non trouvée, utilisation colonne {df_stock.columns[-1]}")
     
-    return oversent_precedent
-
-def extraire_remarks_colonne_g(df):
-    """
-    Extrait la colonne G (index 6) quelle que soit son en-tête
-    et crée une colonne 'Remarks' standardisée
-    """
-    df_copy = df.copy()
+    # Convertir en numérique
+    try:
+        oversent_stock = float(oversent_stock)
+    except:
+        oversent_stock = 0
     
-    # La colonne G est l'index 6 (7ème colonne)
-    if len(df_copy.columns) > 6:
-        # Créer une colonne Remarks à partir de la colonne G
-        df_copy['Remarks'] = df_copy.iloc[:, 6].astype(str).str.strip()
-        return df_copy
-    else:
-        st.error(f"Le fichier n'a que {len(df_copy.columns)} colonnes, pas de colonne G (index 6)")
-        return None
+    return oversent_stock
 
-def verifier_modele(feuille_df, nom_modele, idl, dict_stocks, progress_bar=None, status_text=None):
+def calculer_oversent_reel(oversent_stock, packing_qty, qty_for):
+    """
+    Calcul du véritable oversent:
+    oversent_reel = oversent_stock + packing_qty - qty_for
+    """
+    return oversent_stock + packing_qty - qty_for
+
+def verifier_modele(df_feuille, nom_modele, idl, dict_stocks):
     """Vérifie toutes les lignes d'une feuille (modèle)"""
     resultats = []
     erreurs = []
     
-    # Extraire la colonne G comme Remarks
-    feuille_df = extraire_remarks_colonne_g(feuille_df)
-    if feuille_df is None:
-        return resultats, ["Impossible d'extraire la colonne G"]
+    # Standardiser les colonnes
+    df_standard = extraire_colonnes_position(df_feuille)
+    if df_standard is None:
+        return resultats, ["Format de fichier incorrect"]
     
-    # Définir les noms de colonnes attendus
-    # Part N peut être dans différentes colonnes
-    col_part_n = None
-    for col in feuille_df.columns:
-        if 'part' in col.lower() or 'pn' in col.lower():
-            col_part_n = col
-            break
-    
-    if col_part_n is None:
-        # Si on trouve pas, utiliser colonne B (index 1) souvent c'est là
-        col_part_n = feuille_df.columns[1] if len(feuille_df.columns) > 1 else feuille_df.columns[0]
-    
-    # Description souvent colonne C (index 2)
-    col_description = feuille_df.columns[2] if len(feuille_df.columns) > 2 else feuille_df.columns[0]
-    
-    # Qty for est colonne E (index 4)
-    col_qty_for = feuille_df.columns[4] if len(feuille_df.columns) > 4 else feuille_df.columns[0]
-    
-    # Packing list qty souvent colonne F (index 5)
-    col_packing = feuille_df.columns[5] if len(feuille_df.columns) > 5 else feuille_df.columns[0]
-    
-    # Oversent qty souvent colonne ? (à adapter)
-    col_oversent = None
-    for col in feuille_df.columns:
-        if 'oversent' in col.lower() or 'over sent' in col.lower():
-            col_oversent = col
-            break
-    if col_oversent is None:
-        col_oversent = feuille_df.columns[7] if len(feuille_df.columns) > 7 else feuille_df.columns[0]
-    
-    # Moka reply est colonne H (index 7)
-    col_moka = feuille_df.columns[7] if len(feuille_df.columns) > 7 else feuille_df.columns[0]
-    
-    st.write(f"**Structure détectée pour {nom_modele}:**")
-    st.write(f"- Part N: '{col_part_n}'")
-    st.write(f"- Description: '{col_description}'")
-    st.write(f"- Qty for: '{col_qty_for}' (colonne E)")
-    st.write(f"- Packing list qty: '{col_packing}' (colonne F)")
-    st.write(f"- Remarks: colonne G (valeurs trouvées)")
-    st.write(f"- Oversent qty: '{col_oversent}'")
-    st.write(f"- Moka reply: '{col_moka}' (colonne H)")
-    
-    # Filtrer sur Missing et shortage dans la colonne Remarks
-    try:
-        mask_missing = feuille_df['Remarks'] == 'Missing'
-        mask_shortage = feuille_df['Remarks'] == 'shortage'
-        df_filtre = feuille_df[mask_missing | mask_shortage]
-        
-        st.write(f"  - 'Missing' trouvés: {mask_missing.sum()}")
-        st.write(f"  - 'shortage' trouvés: {mask_shortage.sum()}")
-        st.write(f"  - Total à vérifier: {len(df_filtre)}")
-        
-    except Exception as e:
-        erreurs.append(f"Erreur filtrage: {str(e)}")
-        return resultats, erreurs
+    # Filtrer sur Missing et shortage
+    mask_missing = df_standard['Remarks'] == 'Missing'
+    mask_shortage = df_standard['Remarks'] == 'shortage'
+    df_filtre = df_standard[mask_missing | mask_shortage]
     
     if df_filtre.empty:
-        st.warning(f"Aucune ligne avec 'Missing'/'shortage' dans {nom_modele}")
+        st.info(f"📌 {nom_modele}: Aucune ligne 'Missing' ou 'shortage'")
         return resultats, erreurs
     
-    total_lignes = len(df_filtre)
+    st.write(f"**{nom_modele}** - {len(df_filtre)} lignes à vérifier (IDL: {idl})")
+    
+    # Barre de progression pour ce modèle
+    progress_bar = st.progress(0)
     
     for idx, (index_ligne, ligne) in enumerate(df_filtre.iterrows()):
-        if progress_bar and total_lignes > 0:
-            progress = (idx + 1) / total_lignes
-            progress_bar.progress(progress, text=f"{nom_modele}: {idx+1}/{total_lignes}")
-        if status_text:
-            status_text.text(f"Traitement: {nom_modele}")
+        # Mise à jour progression
+        progress_bar.progress((idx + 1) / len(df_filtre))
         
-        part_n = str(ligne[col_part_n]).strip()
-        description = str(ligne[col_description]) if pd.notna(ligne[col_description]) else ""
-        qty_for = ligne[col_qty_for]
-        packing_qty = ligne[col_packing]
-        oversent_frs = ligne[col_oversent]
-        nom_fichier_stock = str(ligne[col_moka]).strip()
+        # Extraire les données
+        part_n = ligne['Part_N']
+        description = ligne['Description'] if pd.notna(ligne['Description']) else ""
+        qty_for = ligne['Qty_for']
+        packing_qty = ligne['Packing_list_qty']
+        oversent_frs = ligne['Oversent_FRS']
+        nom_fichier_stock = ligne['Moka_reply']
         
-        st.write(f"  → Vérification: {part_n} - {nom_fichier_stock}")
+        # Nettoyer le nom du fichier
+        nom_fichier_stock = nom_fichier_stock.replace('.xlsx', '').replace('.xls', '')
         
-        # Chercher le fichier stock
-        if nom_fichier_stock not in dict_stocks:
-            # Recherche approximative
-            fichier_trouve = None
-            for nom_fichier in dict_stocks.keys():
-                if nom_fichier_stock.replace('.xlsx', '').replace('.xls', '') in nom_fichier:
-                    fichier_trouve = nom_fichier
-                    break
-            if fichier_trouve:
-                nom_fichier_stock = fichier_trouve
-                st.info(f"  Fichier trouvé: {fichier_trouve}")
-            else:
-                erreurs.append(f"Fichier '{nom_fichier_stock}' non trouvé")
-                resultats.append({
-                    'Modèle': nom_modele,
-                    'IDL': idl,
-                    'Part N': part_n,
-                    'Description': description,
-                    'Status': '❌ Fichier stock manquant',
-                    'Fichier requis': nom_fichier_stock
-                })
-                continue
+        # Chercher le fichier stock correspondant
+        fichier_stock_trouve = None
+        for nom_fichier in dict_stocks.keys():
+            if nom_fichier_stock in nom_fichier or nom_fichier.startswith(nom_fichier_stock):
+                fichier_stock_trouve = nom_fichier
+                break
         
-        df_stock = dict_stocks[nom_fichier_stock]
+        if fichier_stock_trouve is None:
+            erreurs.append(f"Fichier '{nom_fichier_stock}' non trouvé pour {part_n}")
+            resultats.append({
+                'Modèle': nom_modele,
+                'Part N': part_n,
+                'Description': description,
+                'Status': '❌ Fichier stock manquant',
+                'Fichier requis': nom_fichier_stock
+            })
+            continue
+        
+        df_stock = dict_stocks[fichier_stock_trouve]
         
         try:
+            # Récupérer l'oversent du stock (ligne précédente)
             oversent_stock = get_oversent_from_stock(df_stock, part_n, idl)
-            oversent_reel = oversent_stock - qty_for + packing_qty
             
-            est_correct = abs(oversent_reel - oversent_frs) < 0.01
+            # Calculer l'oversent réel
+            oversent_reel = calculer_oversent_reel(oversent_stock, packing_qty, qty_for)
             
+            # Calculer l'écart
+            ecart = oversent_reel - oversent_frs
+            
+            # Vérifier si correct (tolérance 0.01)
+            est_correct = abs(ecart) < 0.01
+            
+            # Afficher le résultat
+            if est_correct:
+                status = "✅ CORRECT"
+                st.success(f"  ✅ {part_n}: {oversent_frs} = {oversent_reel:.2f}")
+            else:
+                status = "❌ INCORRECT"
+                st.error(f"  ❌ {part_n}: FRS={oversent_frs} | Calculé={oversent_reel:.2f} | Écart={ecart:.2f}")
+            
+            # Ajouter au rapport
             resultats.append({
                 'Modèle': nom_modele,
                 'IDL utilisé': idl,
                 'Part N': part_n,
                 'Description': description,
+                'Remarks': ligne['Remarks'],
                 'Qty for (col E)': qty_for,
-                'Packing Qty (col F)': packing_qty,
+                'Packing list qty (col F)': packing_qty,
+                'Oversent stock (ligne N-1)': oversent_stock,
                 'Oversent FRS': oversent_frs,
                 'Oversent calculé': round(oversent_reel, 2),
-                'Écart': round(oversent_reel - oversent_frs, 2),
-                'Status': '✅ Correct' if est_correct else '❌ Incorrect',
-                'Fichier stock': nom_fichier_stock,
-                'Remarks': ligne['Remarks']
+                'Écart': round(ecart, 2),
+                'Status': status,
+                'Fichier stock utilisé': fichier_stock_trouve
             })
-            
-            if est_correct:
-                st.success(f"    ✅ Correct")
-            else:
-                st.error(f"    ❌ Incorrect (FRS:{oversent_frs} vs Calculé:{round(oversent_reel,2)})")
             
         except Exception as e:
-            st.error(f"    ❌ Erreur: {str(e)}")
-            erreurs.append(f"Erreur {part_n}: {str(e)}")
+            erreurs.append(f"{part_n} ({nom_modele}): {str(e)}")
             resultats.append({
                 'Modèle': nom_modele,
-                'IDL utilisé': idl,
                 'Part N': part_n,
                 'Description': description,
-                'Status': f'❌ {str(e)[:50]}',
+                'Remarks': ligne['Remarks'],
+                'Status': f'❌ Erreur: {str(e)[:100]}',
             })
+            st.error(f"  ❌ {part_n}: Erreur - {str(e)}")
     
+    progress_bar.empty()
     return resultats, erreurs
 
-# Interface Sidebar
+# ==================== INTERFACE STREAMLIT ====================
+
+# Sidebar pour le chargement des fichiers
 with st.sidebar:
-    st.header("📂 Fichiers")
-    reply_file = st.file_uploader("reply.xlsx", type=['xlsx', 'xls'])
-    stock_files = st.file_uploader("Fichiers stocks", type=['xlsx', 'xls'], accept_multiple_files=True)
+    st.header("📂 1. Chargement des fichiers")
+    
+    reply_file = st.file_uploader(
+        "Fichier reply.xlsx",
+        type=['xlsx', 'xls'],
+        help="Fichier de réponse du fournisseur avec plusieurs feuilles"
+    )
+    
+    stock_files = st.file_uploader(
+        "Fichiers stocks",
+        type=['xlsx', 'xls'],
+        accept_multiple_files=True,
+        help="Sélectionnez tous les fichiers stock du fournisseur"
+    )
     
     st.markdown("---")
+    st.markdown("### 📐 Formule de calcul")
+    st.latex(r'''
+    \text{Oversent réel} = \text{Oversent stock (N-1)} + \text{Packing Qty} - \text{Qty for}
+    ''')
+    
     st.markdown("### 📌 Structure attendue")
     st.markdown("""
-    **Fichier reply:**
-    - Colonne G = Remarks ('Missing'/'shortage')
-    - Colonne H = Moka reply (nom fichier stock)
+    **Fichier reply (positions):**
+    - Colonne B = Part N
+    - Colonne C = Description
     - Colonne E = Qty for
     - Colonne F = Packing list qty
+    - Colonne G = Remarks ('Missing'/'shortage')
+    - Colonne H = Moka reply (nom fichier stock)
     
-    **Fichiers stock:**
+    **Fichier stock:**
     - Colonne A = ODF (IDL)
     - Colonne K = OVERSENT QTY
     """)
 
-# Main
+# Zone principale
 if reply_file and stock_files:
-    st.success(f"✅ Reply: {reply_file.name}")
-    st.success(f"✅ Stocks: {len(stock_files)} fichiers")
+    st.success(f"✅ Fichier reply: {reply_file.name}")
+    st.success(f"✅ {len(stock_files)} fichiers stocks chargés")
     
-    with st.spinner("Chargement..."):
+    # Chargement des données
+    with st.spinner("Chargement des fichiers..."):
         dict_reply = charger_toutes_les_feuilles_reply(reply_file)
-        if dict_reply:
-            dict_stocks = charger_stocks_depuis_upload(stock_files)
+        if dict_reply is None:
+            st.stop()
+        dict_stocks = charger_stocks_depuis_upload(stock_files)
+    
+    # Aperçu des feuilles
+    with st.expander("📋 Aperçu des feuilles trouvées"):
+        for nom_feuille, df in dict_reply.items():
+            st.write(f"**{nom_feuille}** - {len(df)} lignes, {len(df.columns)} colonnes")
+    
+    # Saisie des IDL par modèle
+    st.markdown("---")
+    st.header("🔑 2. Saisie des IDL par modèle")
+    st.caption("Entrez l'IDL correspondant à chaque modèle (feuille)")
+    
+    idl_par_modele = {}
+    
+    # Créer des colonnes pour la saisie
+    cols = st.columns(min(3, len(dict_reply)))
+    
+    for i, (nom_modele, df) in enumerate(dict_reply.items()):
+        with cols[i % len(cols)]:
+            st.subheader(f"📱 {nom_modele}")
+            idl = st.text_input(
+                f"IDL",
+                key=f"idl_{nom_modele}",
+                placeholder="Ex: IDL12345"
+            )
+            if idl:
+                idl_par_modele[nom_modele] = idl
+    
+    # Bouton de vérification
+    st.markdown("---")
+    col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
+    with col_btn2:
+        verifier = st.button("🚀 LANCER LA VÉRIFICATION", type="primary", use_container_width=True)
+    
+    if verifier:
+        if not idl_par_modele:
+            st.error("❌ Veuillez saisir au moins un IDL")
+        else:
+            # Résultats
+            tous_resultats = []
+            toutes_erreurs = []
             
             st.markdown("---")
-            st.header("🔑 IDL par modèle")
+            st.header("📊 3. Résultats de la vérification")
             
-            idl_par_modele = {}
-            cols = st.columns(min(3, len(dict_reply)))
-            
-            for i, nom_modele in enumerate(dict_reply.keys()):
-                with cols[i % len(cols)] if cols else st:
-                    idl = st.text_input(f"IDL pour {nom_modele}", key=f"idl_{nom_modele}")
-                    if idl:
-                        idl_par_modele[nom_modele] = idl
-            
-            if st.button("🚀 VÉRIFIER", type="primary", use_container_width=True):
-                if not idl_par_modele:
-                    st.error("Saisissez au moins un IDL")
+            # Traitement par modèle
+            for nom_modele, df_feuille in dict_reply.items():
+                if nom_modele in idl_par_modele:
+                    st.markdown(f"### 📌 Modèle: {nom_modele}")
+                    
+                    resultats, erreurs = verifier_modele(
+                        df_feuille,
+                        nom_modele,
+                        idl_par_modele[nom_modele],
+                        dict_stocks
+                    )
+                    
+                    tous_resultats.extend(resultats)
+                    toutes_erreurs.extend(erreurs)
                 else:
-                    tous_resultats = []
-                    toutes_erreurs = []
-                    
-                    for nom_modele, df_feuille in dict_reply.items():
-                        if nom_modele in idl_par_modele:
-                            st.subheader(f"📋 {nom_modele}")
-                            
-                            resultats, erreurs = verifier_modele(
-                                df_feuille, nom_modele, idl_par_modele[nom_modele],
-                                dict_stocks
-                            )
-                            tous_resultats.extend(resultats)
-                            toutes_erreurs.extend(erreurs)
-                    
-                    st.markdown("---")
-                    st.header("📊 Résultats")
-                    
-                    if tous_resultats:
-                        df_resultats = pd.DataFrame(tous_resultats)
-                        
-                        col1, col2, col3 = st.columns(3)
-                        total = len(df_resultats)
-                        corrects = len(df_resultats[df_resultats['Status'] == '✅ Correct'])
-                        incorrects = len(df_resultats[df_resultats['Status'] == '❌ Incorrect'])
-                        
-                        col1.metric("Total", total)
-                        col2.metric("✅ Corrects", corrects)
-                        col3.metric("❌ Incorrects", incorrects)
-                        
-                        st.dataframe(df_resultats, use_container_width=True, hide_index=True)
-                        
-                        output = io.BytesIO()
-                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                            df_resultats.to_excel(writer, sheet_name='Résultats', index=False)
-                            if toutes_erreurs:
-                                pd.DataFrame({'Erreurs': toutes_erreurs}).to_excel(writer, sheet_name='Erreurs', index=False)
-                        
-                        st.download_button("📥 Télécharger Excel", output.getvalue(), "verification.xlsx", use_container_width=True)
-                    else:
-                        st.error("Aucun résultat")
+                    st.warning(f"⚠️ Aucun IDL saisi pour {nom_modele}")
             
+            # Rapport final
+            st.markdown("---")
+            st.header("📈 Synthèse finale")
+            
+            if tous_resultats:
+                df_resultats = pd.DataFrame(tous_resultats)
+                
+                # Statistiques
+                col1, col2, col3, col4 = st.columns(4)
+                
+                total = len(df_resultats)
+                corrects = len(df_resultats[df_resultats['Status'] == '✅ CORRECT']) if 'Status' in df_resultats.columns else 0
+                incorrects = len(df_resultats[df_resultats['Status'] == '❌ INCORRECT']) if 'Status' in df_resultats.columns else 0
+                erreurs_count = len(df_resultats[df_resultats['Status'].str.startswith('❌', na=False)]) - incorrects if 'Status' in df_resultats.columns else 0
+                
+                col1.metric("📋 Total vérifié", total)
+                col2.metric("✅ Corrects", corrects, delta=f"{corrects/total*100:.0f}%" if total > 0 else "0%")
+                col3.metric("❌ Incorrects", incorrects, delta=f"-{incorrects/total*100:.0f}%" if total > 0 else "0%", delta_color="inverse")
+                col4.metric("⚠️ Erreurs", erreurs_count)
+                
+                # Tableau détaillé
+                st.subheader("📋 Détail des vérifications")
+                
+                # Colonnes à afficher
+                colonnes_affichage = ['Modèle', 'Part N', 'Description', 'Remarks', 'Qty for (col E)', 
+                                      'Packing list qty (col F)', 'Oversent FRS', 'Oversent calculé', 'Écart', 'Status']
+                colonnes_disponibles = [col for col in colonnes_affichage if col in df_resultats.columns]
+                
+                st.dataframe(
+                    df_resultats[colonnes_disponibles],
+                    use_container_width=True,
+                    hide_index=True
+                )
+                
+                # Filtres
+                st.subheader("🔍 Filtres")
+                col_f1, col_f2 = st.columns(2)
+                
+                with col_f1:
+                    if 'Status' in df_resultats.columns:
+                        status_filter = st.multiselect(
+                            "Filtrer par status",
+                            options=df_resultats['Status'].unique(),
+                            default=[]
+                        )
+                    else:
+                        status_filter = []
+                
+                with col_f2:
+                    if 'Modèle' in df_resultats.columns:
+                        modele_filter = st.multiselect(
+                            "Filtrer par modèle",
+                            options=df_resultats['Modèle'].unique(),
+                            default=[]
+                        )
+                    else:
+                        modele_filter = []
+                
+                # Application des filtres
+                df_filtre_aff = df_resultats.copy()
+                if status_filter:
+                    df_filtre_aff = df_filtre_aff[df_filtre_aff['Status'].isin(status_filter)]
+                if modele_filter:
+                    df_filtre_aff = df_filtre_aff[df_filtre_aff['Modèle'].isin(modele_filter)]
+                
+                if not df_filtre_aff.empty:
+                    st.dataframe(
+                        df_filtre_aff[colonnes_disponibles],
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                
+                # Affichage des erreurs
+                if toutes_erreurs:
+                    st.subheader("⚠️ Liste des erreurs")
+                    for erreur in toutes_erreurs[:20]:
+                        st.error(erreur)
+                    if len(toutes_erreurs) > 20:
+                        st.warning(f"... et {len(toutes_erreurs) - 20} autres erreurs")
+                
+                # Export Excel
+                st.subheader("💾 Export des résultats")
+                
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    # Feuille des résultats
+                    df_resultats.to_excel(writer, sheet_name='Résultats', index=False)
+                    
+                    # Feuille des erreurs
+                    if toutes_erreurs:
+                        df_erreurs = pd.DataFrame({'Erreurs': toutes_erreurs})
+                        df_erreurs.to_excel(writer, sheet_name='Erreurs', index=False)
+                    
+                    # Feuille de statistiques
+                    stats_data = {
+                        'Statistique': ['Total vérifié', 'Corrects', 'Incorrects', 'Erreurs', 'Taux de réussite'],
+                        'Valeur': [total, corrects, incorrects, erreurs_count, f"{corrects/total*100:.1f}%" if total > 0 else "0%"]
+                    }
+                    pd.DataFrame(stats_data).to_excel(writer, sheet_name='Statistiques', index=False)
+                    
+                    # Feuille des incorrects uniquement
+                    if incorrects > 0:
+                        df_incorrects = df_resultats[df_resultats['Status'] == '❌ INCORRECT']
+                        df_incorrects.to_excel(writer, sheet_name='Incorrects', index=False)
+                
+                st.download_button(
+                    label="📥 Télécharger le rapport Excel",
+                    data=output.getvalue(),
+                    file_name="verification_oversent.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+                
+                # Message final
+                st.markdown("---")
+                if incorrects == 0 and erreurs_count == 0:
+                    st.balloons()
+                    st.success("🎉 FÉLICITATIONS ! Toutes les vérifications sont correctes !")
+                elif incorrects > 0:
+                    st.warning(f"⚠️ Attention : {incorrects} incohérence(s) détectée(s) à corriger avec le fournisseur")
+                else:
+                    st.info("ℹ️ Quelques erreurs techniques, vérifiez les fichiers")
+            
+            else:
+                st.error("❌ Aucun résultat généré")
+
 elif reply_file and not stock_files:
-    st.warning("Ajoutez les fichiers stocks")
+    st.warning("⚠️ Veuillez ajouter les fichiers stocks")
+
 elif not reply_file and stock_files:
-    st.warning("Ajoutez le fichier reply.xlsx")
+    st.warning("⚠️ Veuillez ajouter le fichier reply.xlsx")
+
 else:
-    st.info("👈 Chargez les fichiers")
+    st.info("👈 Commencez par charger les fichiers dans la barre latérale")
+
+# Footer
+st.markdown("---")
+st.markdown("""
+### 📞 Support
+
+**Formule de calcul :** `Oversent réel = Oversent stock (ligne N-1) + Packing list qty - Qty for`
+
+En cas de problème, vérifiez que:
+1. Les fichiers sont au format Excel (.xlsx)
+2. Les colonnes sont aux bonnes positions (E, F, G, H dans reply)
+3. Les IDL existent dans les fichiers stock
+""")
