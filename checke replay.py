@@ -79,12 +79,10 @@ st.markdown("---")
 col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("📊 Fichier Reply")
-    reply_file = st.file_uploader("reply.xlsx", type=['xlsx', 'xls'])
+    reply_file = st.file_uploader("📊 Fichier Reply", type=['xlsx', 'xls'])
 
 with col2:
-    st.subheader("📦 Fichiers Stock")
-    stock_files = st.file_uploader("Fichiers stock", type=['xlsx', 'xls'], accept_multiple_files=True)
+    stock_files = st.file_uploader("📦 Fichiers Stock", type=['xlsx', 'xls'], accept_multiple_files=True)
 
 st.markdown("---")
 
@@ -97,8 +95,8 @@ if reply_file and stock_files:
     
     if dict_reply and dict_stocks:
         
-        # Aperçu rapide
-        st.caption(f"📁 {len(dict_reply)} feuille(s) trouvée(s) : {', '.join(dict_reply.keys())}")
+        # Aperçu des feuilles
+        st.caption(f"📁 {len(dict_reply)} feuille(s) : {', '.join(dict_reply.keys())}")
         
         # IDL par modèle
         st.subheader("🔑 IDL par modèle")
@@ -124,106 +122,96 @@ if reply_file and stock_files:
                 resultats = []
                 erreurs = []
                 
-                # Traitement
-                for modele, df_feuille in dict_reply.items():
-                    if modele not in idl_par_modele:
-                        continue
-                    
-                    st.markdown(f"### {modele}")
-                    
-                    df_std = extraire_colonnes_reply(df_feuille)
-                    if df_std is None:
-                        st.error(f"Format incorrect")
-                        continue
-                    
-                    # Filtrer Missing/Shortage
-                    df_filtre = df_std[df_std['Remarks'].isin(['Missing', 'shortage'])]
-                    
-                    if df_filtre.empty:
-                        st.info("Aucune ligne Missing/shortage")
-                        continue
-                    
-                    progress = st.progress(0)
-                    
-                    for i, (_, row) in enumerate(df_filtre.iterrows()):
-                        progress.progress((i + 1) / len(df_filtre))
-                        
-                        part_n = row['Part_N']
-                        desc = row['Description'][:40]
-                        qty_for = row['Qty_for']
-                        packing_qty = row['Packing_qty']
-                        oversent_frs = row['Oversent_FRS']
-                        moka_file = row['Moka_file']
-                        remarks = row['Remarks']
-                        idl = idl_par_modele[modele]
-                        
-                        # Chercher fichier stock
-                        stock_file = None
-                        for fname in dict_stocks.keys():
-                            if moka_file in fname.replace('.xlsx', '').replace('.xls', ''):
-                                stock_file = fname
-                                break
-                        
-                        if not stock_file:
-                            erreurs.append(f"{part_n}: Fichier {moka_file} non trouvé")
-                            resultats.append({
-                                'Modèle': modele, 'Part N': part_n, 'Description': desc,
-                                'Remarks': remarks, 'Status': '❌ Fichier manquant'
-                            })
+                # Traitement silencieux (pas d'affichage intermédiaire)
+                with st.spinner("Vérification en cours..."):
+                    for modele, df_feuille in dict_reply.items():
+                        if modele not in idl_par_modele:
                             continue
                         
-                        try:
-                            oversent_stock = get_oversent_stock(dict_stocks[stock_file], part_n, idl)
-                            oversent_calc = oversent_stock + packing_qty - qty_for
-                            ecart = oversent_calc - oversent_frs
-                            correct = abs(ecart) < 0.01
+                        df_std = extraire_colonnes_reply(df_feuille)
+                        if df_std is None:
+                            continue
+                        
+                        # Filtrer Missing/Shortage
+                        df_filtre = df_std[df_std['Remarks'].isin(['Missing', 'shortage'])]
+                        
+                        if df_filtre.empty:
+                            continue
+                        
+                        idl = idl_par_modele[modele]
+                        
+                        for _, row in df_filtre.iterrows():
+                            part_n = row['Part_N']
+                            desc = row['Description'][:50]
+                            qty_for = row['Qty_for']
+                            packing_qty = row['Packing_qty']
+                            oversent_frs = row['Oversent_FRS']
+                            moka_file = row['Moka_file']
+                            remarks = row['Remarks']
                             
-                            if correct:
-                                st.success(f"✅ {part_n[:45]}")
-                            else:
-                                st.error(f"❌ {part_n[:45]} | FRS:{oversent_frs} | Calc:{oversent_calc:.1f} | Écart:{ecart:.1f}")
+                            # Chercher fichier stock
+                            stock_file = None
+                            for fname in dict_stocks.keys():
+                                if moka_file in fname.replace('.xlsx', '').replace('.xls', ''):
+                                    stock_file = fname
+                                    break
                             
-                            resultats.append({
-                                'Modèle': modele, 'Part N': part_n, 'Description': desc,
-                                'Remarks': remarks, 'IDL': idl,
-                                'Qty for': qty_for, 'Packing Qty': packing_qty,
-                                'Oversent Stock': oversent_stock,
-                                'Oversent FRS': oversent_frs,
-                                'Oversent Calculé': round(oversent_calc, 1),
-                                'Écart': round(ecart, 1),
-                                'Status': '✅ Correct' if correct else '❌ Incorrect'
-                            })
+                            if not stock_file:
+                                erreurs.append(f"{part_n}: Fichier {moka_file} non trouvé")
+                                resultats.append({
+                                    'Modèle': modele, 'Part N': part_n, 'Description': desc,
+                                    'Remarks': remarks, 'Qty for': qty_for, 'Packing Qty': packing_qty,
+                                    'Oversent FRS': oversent_frs, 'Oversent Calculé': None,
+                                    'Écart': None, 'Status': '❌ Fichier manquant'
+                                })
+                                continue
                             
-                        except Exception as e:
-                            erreurs.append(f"{part_n}: {str(e)}")
-                            resultats.append({
-                                'Modèle': modele, 'Part N': part_n, 'Description': desc,
-                                'Remarks': remarks, 'Status': '❌ Erreur'
-                            })
-                            st.error(f"❌ {part_n[:45]}: {str(e)[:60]}")
-                    
-                    progress.empty()
-                    st.markdown("---")
+                            try:
+                                oversent_stock = get_oversent_stock(dict_stocks[stock_file], part_n, idl)
+                                oversent_calc = oversent_stock + packing_qty - qty_for
+                                ecart = oversent_calc - oversent_frs
+                                correct = abs(ecart) < 0.01
+                                
+                                resultats.append({
+                                    'Modèle': modele, 'Part N': part_n, 'Description': desc,
+                                    'Remarks': remarks, 'IDL': idl,
+                                    'Qty for': qty_for, 'Packing Qty': packing_qty,
+                                    'Oversent Stock': oversent_stock,
+                                    'Oversent FRS': oversent_frs,
+                                    'Oversent Calculé': round(oversent_calc, 1),
+                                    'Écart': round(ecart, 1),
+                                    'Status': '✅ Correct' if correct else '❌ Incorrect'
+                                })
+                                
+                            except Exception as e:
+                                erreurs.append(f"{part_n}: {str(e)}")
+                                resultats.append({
+                                    'Modèle': modele, 'Part N': part_n, 'Description': desc,
+                                    'Remarks': remarks, 'Qty for': qty_for, 'Packing Qty': packing_qty,
+                                    'Oversent FRS': oversent_frs, 'Oversent Calculé': None,
+                                    'Écart': None, 'Status': '❌ Erreur'
+                                })
                 
-                # Résumé
+                # Affichage des résultats - UNIQUEMENT LE TABLEAU
                 if resultats:
-                    st.subheader("📊 Résumé")
+                    st.subheader("📊 Résultats")
                     
                     df_res = pd.DataFrame(resultats)
                     total = len(df_res)
                     corrects = len(df_res[df_res['Status'] == '✅ Correct'])
                     incorrects = len(df_res[df_res['Status'] == '❌ Incorrect'])
                     
+                    # Métriques compactes
                     c1, c2, c3, c4 = st.columns(4)
                     c1.metric("Total", total)
                     c2.metric("✅ Corrects", corrects)
                     c3.metric("❌ Incorrects", incorrects)
                     c4.metric("Taux", f"{corrects/total*100:.0f}%" if total > 0 else "0%")
                     
-                    # Tableau
+                    # Tableau (sans affichage des logs)
                     st.dataframe(df_res, use_container_width=True, hide_index=True)
                     
-                    # Export
+                    # Export Excel
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine='openpyxl') as writer:
                         df_res.to_excel(writer, sheet_name='Résultats', index=False)
@@ -233,13 +221,16 @@ if reply_file and stock_files:
                     st.download_button("📥 Télécharger Excel", output.getvalue(), "verification.xlsx", use_container_width=True)
                     
                     if incorrects == 0:
-                        st.success("✅ Tout est correct !")
+                        st.success("✅ Toutes les vérifications sont correctes !")
                     else:
                         st.warning(f"⚠️ {incorrects} incohérence(s) détectée(s)")
+                        
+                else:
+                    st.info("Aucune donnée à vérifier")
 
 else:
     st.info("👈 Chargez les fichiers pour commencer")
 
-# Formule en bas
+# Formule
 st.markdown("---")
 st.caption("📐 Formule: Oversent réel = Oversent stock (ligne précédente) + Packing list qty - Qty for")
