@@ -9,7 +9,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# ==================== CSS COLORÉ SANS FOND ====================
+# ==================== CSS ====================
 st.markdown("""
 <style>
     /* Police */
@@ -19,14 +19,11 @@ st.markdown("""
         font-family: 'Inter', sans-serif;
     }
     
-    /* Fond blanc */
-    .stApp {
-        background: #ffffff;
-    }
+    /* Pas de fond forcé - laisse le fond Streamlit par défaut */
     
     /* Cartes */
     .card {
-        background: #ffffff;
+        background: white;
         border-radius: 16px;
         padding: 1.5rem;
         margin-bottom: 1.5rem;
@@ -50,13 +47,13 @@ st.markdown("""
         border-radius: 12px;
         padding: 1rem;
         text-align: center;
-        background: #f8fafc;
+        background: #fafafa;
         transition: all 0.2s;
     }
     
     .upload-area:hover {
         border-color: #6366f1;
-        background: #eef2ff;
+        background: #f5f3ff;
     }
     
     /* Métriques colorées */
@@ -109,12 +106,13 @@ st.markdown("""
     
     /* En-tête */
     .header {
-        background: #ffffff;
+        background: white;
         padding: 1.5rem;
         border-radius: 16px;
         margin-bottom: 1.5rem;
         text-align: center;
         border: 1px solid #e5e7eb;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
     }
     
     .header h1 {
@@ -140,6 +138,7 @@ st.markdown("""
         font-weight: 600;
         border-radius: 40px;
         font-size: 0.9rem;
+        transition: all 0.2s;
     }
     
     .stButton > button:hover {
@@ -161,12 +160,13 @@ st.markdown("""
     
     /* Info box */
     .info-box {
-        background: #eef2ff;
+        background: #f0fdf4;
         padding: 0.6rem 1rem;
         border-radius: 10px;
         font-size: 0.85rem;
-        color: #4338ca;
+        color: #166534;
         margin-bottom: 1rem;
+        border-left: 3px solid #10b981;
     }
     
     /* Footer */
@@ -177,6 +177,11 @@ st.markdown("""
         color: #9ca3af;
         font-size: 0.8rem;
         border-top: 1px solid #e5e7eb;
+    }
+    
+    /* Divider */
+    hr {
+        margin: 1rem 0;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -276,7 +281,7 @@ with col2:
 
 if reply_file and stock_files:
     
-    with st.spinner("📥 Chargement des fichiers..."):
+    with st.spinner("📥 Chargement..."):
         dict_reply = charger_feuilles_reply(reply_file)
         dict_stocks = charger_stocks(stock_files)
     
@@ -284,7 +289,7 @@ if reply_file and stock_files:
         
         st.markdown(f"""
         <div class="info-box">
-            📁 {len(dict_reply)} feuille(s) détectée(s) : <strong>{', '.join(dict_reply.keys())}</strong>
+            📁 {len(dict_reply)} feuille(s) : <strong>{', '.join(dict_reply.keys())}</strong>
         </div>
         """, unsafe_allow_html=True)
         
@@ -292,7 +297,7 @@ if reply_file and stock_files:
         st.markdown("""
         <div class="card">
             <div class="card-title">
-                <span>🔑</span> Configuration des IDL
+                <span>🔑</span> IDL par modèle
             </div>
         """, unsafe_allow_html=True)
         
@@ -302,7 +307,7 @@ if reply_file and stock_files:
         for i, modele in enumerate(dict_reply.keys()):
             with cols[i % len(cols)]:
                 st.markdown(f"<span style='font-weight:500;'>📱 {modele}</span>", unsafe_allow_html=True)
-                idl = st.text_input("", key=f"idl_{modele}", placeholder="Entrez l'IDL", label_visibility="collapsed")
+                idl = st.text_input("", key=f"idl_{modele}", placeholder="IDL", label_visibility="collapsed")
                 if idl:
                     idl_par_modele[modele] = idl
         
@@ -311,16 +316,16 @@ if reply_file and stock_files:
         # Bouton
         col_btn1, col_btn2, col_btn3 = st.columns([1,2,1])
         with col_btn2:
-            verifier = st.button("🚀 LANCER LA VÉRIFICATION", use_container_width=True)
+            verifier = st.button("🚀 VÉRIFIER", use_container_width=True)
         
         if verifier:
             if not idl_par_modele:
-                st.warning("⚠️ Veuillez saisir au moins un IDL")
+                st.warning("⚠️ Saisissez au moins un IDL")
             else:
                 resultats = []
                 erreurs = []
                 
-                with st.spinner("⏳ Vérification en cours..."):
+                with st.spinner("⏳ Vérification..."):
                     for modele, df_feuille in dict_reply.items():
                         if modele not in idl_par_modele:
                             continue
@@ -428,7 +433,6 @@ if reply_file and stock_files:
                         </div>
                         """, unsafe_allow_html=True)
                     
-                    # Tableau
                     st.markdown("<br>", unsafe_allow_html=True)
                     
                     def color_status(val):
@@ -443,7 +447,6 @@ if reply_file and stock_files:
                     styled_df = df_res.style.map(color_status, subset=['Status'])
                     st.dataframe(styled_df, use_container_width=True, hide_index=True)
                     
-                    # Export
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine='openpyxl') as writer:
                         df_res.to_excel(writer, sheet_name='Résultats', index=False)
@@ -459,7 +462,7 @@ if reply_file and stock_files:
 else:
     st.markdown("""
     <div class="info-box" style="text-align: center;">
-        ✨ Commencez par charger les fichiers ci-dessus
+        ✨ Chargez les fichiers pour commencer
     </div>
     """, unsafe_allow_html=True)
 
