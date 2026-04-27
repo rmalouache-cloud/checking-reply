@@ -5,105 +5,183 @@ import io
 # Configuration
 st.set_page_config(
     page_title="Vérification Fournisseur",
-    page_icon="✓",
+    page_icon="✅",
     layout="wide"
 )
 
-# ==================== CSS NEUTRE ====================
+# ==================== CSS COLORÉ ====================
 st.markdown("""
 <style>
     /* Police */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
     
     * {
         font-family: 'Inter', sans-serif;
     }
     
-    /* Fond neutre */
+    /* Fond */
     .stApp {
-        background: #ffffff;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    /* Cartes */
+    .card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+        border: none;
+    }
+    
+    .card-title {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: #1f2937;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    /* Zone upload */
+    .upload-area {
+        border: 2px dashed #c7d2fe;
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+        background: #f8fafc;
+        transition: all 0.2s;
+    }
+    
+    .upload-area:hover {
+        border-color: #6366f1;
+        background: #eef2ff;
+    }
+    
+    /* Métriques colorées */
+    .metric-total {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+        color: white;
+    }
+    
+    .metric-correct {
+        background: linear-gradient(135deg, #10b981, #059669);
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+        color: white;
+    }
+    
+    .metric-incorrect {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+        color: white;
+    }
+    
+    .metric-taux {
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+        color: white;
+    }
+    
+    .metric-number {
+        font-size: 2rem;
+        font-weight: 700;
+    }
+    
+    .metric-label {
+        font-size: 0.75rem;
+        opacity: 0.9;
+        margin-top: 0.3rem;
     }
     
     /* En-tête */
     .header {
-        padding: 2rem 0 1rem 0;
-        margin-bottom: 2rem;
+        background: white;
+        padding: 1.5rem;
+        border-radius: 16px;
+        margin-bottom: 1.5rem;
         text-align: center;
-        border-bottom: 1px solid #e5e7eb;
+        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
     }
     
     .header h1 {
-        color: #111827;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
         margin: 0;
-        font-size: 1.8rem;
-        font-weight: 500;
+        font-size: 2rem;
+        font-weight: 700;
     }
     
     .header p {
         color: #6b7280;
         margin: 0.5rem 0 0 0;
-        font-size: 0.85rem;
     }
     
-    /* Cartes */
-    .card {
-        background: #ffffff;
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-        border: 1px solid #e5e7eb;
+    /* Badges */
+    .badge-success {
+        background: #d1fae5;
+        color: #065f46;
+        padding: 0.2rem 0.6rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
     }
     
-    .card-title {
+    .badge-error {
+        background: #fee2e2;
+        color: #991b1b;
+        padding: 0.2rem 0.6rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    /* Bouton */
+    .stButton > button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 0.7rem 2rem;
+        font-weight: 600;
+        border-radius: 40px;
         font-size: 0.9rem;
-        font-weight: 600;
-        margin-bottom: 1rem;
-        color: #374151;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
     }
     
-    /* Zone upload */
-    .upload-area {
-        border: 1px dashed #d1d5db;
-        border-radius: 8px;
-        padding: 1rem;
-        text-align: center;
-        background: #fafafa;
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(102,126,234,0.3);
     }
     
-    /* Métriques */
-    .metric-wrapper {
-        background: #f9fafb;
-        border-radius: 8px;
-        padding: 1rem;
-        text-align: center;
+    /* Input */
+    .stTextInput > div > div > input {
+        border-radius: 10px;
         border: 1px solid #e5e7eb;
+        padding: 0.5rem 1rem;
     }
     
-    .metric-number {
-        font-size: 1.8rem;
-        font-weight: 600;
-        color: #111827;
-    }
-    
-    .metric-label {
-        font-size: 0.7rem;
-        color: #6b7280;
-        margin-top: 0.4rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+    .stTextInput > div > div > input:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
     }
     
     /* Info box */
     .info-box {
-        background: #f9fafb;
+        background: #eef2ff;
         padding: 0.6rem 1rem;
-        border-radius: 6px;
-        font-size: 0.8rem;
-        color: #4b5563;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        color: #4338ca;
         margin-bottom: 1rem;
-        border-left: 2px solid #9ca3af;
     }
     
     /* Footer */
@@ -111,39 +189,8 @@ st.markdown("""
         text-align: center;
         padding: 1.5rem;
         margin-top: 2rem;
-        color: #9ca3af;
-        font-size: 0.7rem;
-        border-top: 1px solid #e5e7eb;
-    }
-    
-    /* Divider */
-    .divider {
-        height: 1px;
-        background: #e5e7eb;
-        margin: 1.5rem 0;
-    }
-    
-    /* Inputs */
-    .stTextInput > div > div > input {
-        border-radius: 6px;
-        border: 1px solid #e5e7eb;
-        padding: 0.4rem 0.8rem;
-        font-size: 0.85rem;
-    }
-    
-    /* Bouton */
-    .stButton > button {
-        background: #374151;
-        color: white;
-        border: none;
-        padding: 0.5rem 1.5rem;
-        font-weight: 500;
-        border-radius: 6px;
-        font-size: 0.85rem;
-    }
-    
-    .stButton > button:hover {
-        background: #1f2937;
+        color: rgba(255,255,255,0.8);
+        font-size: 0.8rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -151,8 +198,8 @@ st.markdown("""
 # ==================== EN-TÊTE ====================
 st.markdown("""
 <div class="header">
-    <h1>Vérification des réponses fournisseur</h1>
-    <p>Contrôle des quantités Oversent</p>
+    <h1>✅ Vérification des réponses fournisseur</h1>
+    <p>Contrôle automatique des quantités Oversent</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -163,7 +210,7 @@ def charger_feuilles_reply(uploaded_file):
         xlsx = pd.ExcelFile(uploaded_file)
         return {sheet: pd.read_excel(uploaded_file, sheet_name=sheet) for sheet in xlsx.sheet_names}
     except Exception as e:
-        st.error(f"Erreur: {e}")
+        st.error(f"❌ Erreur: {e}")
         return None
 
 def charger_stocks(uploaded_files):
@@ -172,7 +219,7 @@ def charger_stocks(uploaded_files):
         try:
             stocks[f.name] = pd.read_excel(f)
         except Exception as e:
-            st.error(f"Erreur {f.name}: {e}")
+            st.error(f"❌ Erreur {f.name}: {e}")
     return stocks
 
 def extraire_colonnes_reply(df):
@@ -222,7 +269,9 @@ col1, col2 = st.columns(2)
 with col1:
     st.markdown("""
     <div class="card">
-        <div class="card-title">Fichier reply</div>
+        <div class="card-title">
+            <span>📊</span> Fichier Reply
+        </div>
         <div class="upload-area">
     """, unsafe_allow_html=True)
     reply_file = st.file_uploader("reply.xlsx", type=['xlsx', 'xls'], label_visibility="collapsed")
@@ -231,7 +280,9 @@ with col1:
 with col2:
     st.markdown("""
     <div class="card">
-        <div class="card-title">Fichiers stock</div>
+        <div class="card-title">
+            <span>📦</span> Fichiers Stock
+        </div>
         <div class="upload-area">
     """, unsafe_allow_html=True)
     stock_files = st.file_uploader("Fichiers stock", type=['xlsx', 'xls'], accept_multiple_files=True, label_visibility="collapsed")
@@ -239,7 +290,7 @@ with col2:
 
 if reply_file and stock_files:
     
-    with st.spinner("Chargement..."):
+    with st.spinner("📥 Chargement des fichiers..."):
         dict_reply = charger_feuilles_reply(reply_file)
         dict_stocks = charger_stocks(stock_files)
     
@@ -247,14 +298,16 @@ if reply_file and stock_files:
         
         st.markdown(f"""
         <div class="info-box">
-            {len(dict_reply)} feuille(s) : {', '.join(dict_reply.keys())}
+            📁 {len(dict_reply)} feuille(s) détectée(s) : <strong>{', '.join(dict_reply.keys())}</strong>
         </div>
         """, unsafe_allow_html=True)
         
         # IDL
         st.markdown("""
         <div class="card">
-            <div class="card-title">IDL par modèle</div>
+            <div class="card-title">
+                <span>🔑</span> Configuration des IDL
+            </div>
         """, unsafe_allow_html=True)
         
         idl_par_modele = {}
@@ -262,7 +315,8 @@ if reply_file and stock_files:
         
         for i, modele in enumerate(dict_reply.keys()):
             with cols[i % len(cols)]:
-                idl = st.text_input(f"{modele}", key=f"idl_{modele}", placeholder="IDL")
+                st.markdown(f"<span style='font-weight:500;'>📱 {modele}</span>", unsafe_allow_html=True)
+                idl = st.text_input("", key=f"idl_{modele}", placeholder="Entrez l'IDL", label_visibility="collapsed")
                 if idl:
                     idl_par_modele[modele] = idl
         
@@ -271,16 +325,16 @@ if reply_file and stock_files:
         # Bouton
         col_btn1, col_btn2, col_btn3 = st.columns([1,2,1])
         with col_btn2:
-            verifier = st.button("Vérifier", use_container_width=True)
+            verifier = st.button("🚀 LANCER LA VÉRIFICATION", use_container_width=True)
         
         if verifier:
             if not idl_par_modele:
-                st.warning("Saisissez au moins un IDL")
+                st.warning("⚠️ Veuillez saisir au moins un IDL")
             else:
                 resultats = []
                 erreurs = []
                 
-                with st.spinner("Vérification en cours..."):
+                with st.spinner("⏳ Vérification en cours..."):
                     for modele, df_feuille in dict_reply.items():
                         if modele not in idl_par_modele:
                             continue
@@ -335,74 +389,97 @@ if reply_file and stock_files:
                                     'Oversent FRS': oversent_frs,
                                     'Oversent Calculé': round(oversent_calc, 1),
                                     'Écart': round(ecart, 1),
-                                    'Status': '✓' if correct else '✗'
+                                    'Status': '✅' if correct else '❌'
                                 })
                                 
                             except Exception as e:
                                 erreurs.append(f"{part_n}: {str(e)}")
                                 resultats.append({
                                     'Modèle': modele, 'Part N': part_n, 'Description': desc,
-                                    'Remarks': remarks, 'Status': '!'
+                                    'Remarks': remarks, 'Status': '⚠️'
                                 })
                 
                 if resultats:
-                    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+                    st.markdown("<hr>", unsafe_allow_html=True)
                     
                     df_res = pd.DataFrame(resultats)
                     total = len(df_res)
-                    corrects = len(df_res[df_res['Status'] == '✓'])
-                    incorrects = len(df_res[df_res['Status'] == '✗'])
+                    corrects = len(df_res[df_res['Status'] == '✅'])
+                    incorrects = len(df_res[df_res['Status'] == '❌'])
+                    taux = f"{corrects/total*100:.0f}" if total > 0 else "0"
                     
-                    col1, col2, col3 = st.columns(3)
+                    col1, col2, col3, col4 = st.columns(4)
                     
                     with col1:
                         st.markdown(f"""
-                        <div class="metric-wrapper">
+                        <div class="metric-total">
                             <div class="metric-number">{total}</div>
-                            <div class="metric-label">Total</div>
+                            <div class="metric-label">📊 TOTAL</div>
                         </div>
                         """, unsafe_allow_html=True)
                     
                     with col2:
                         st.markdown(f"""
-                        <div class="metric-wrapper">
+                        <div class="metric-correct">
                             <div class="metric-number">{corrects}</div>
-                            <div class="metric-label">Corrects</div>
+                            <div class="metric-label">✅ CORRECTS</div>
                         </div>
                         """, unsafe_allow_html=True)
                     
                     with col3:
                         st.markdown(f"""
-                        <div class="metric-wrapper">
+                        <div class="metric-incorrect">
                             <div class="metric-number">{incorrects}</div>
-                            <div class="metric-label">Incorrects</div>
+                            <div class="metric-label">❌ INCORRECTS</div>
                         </div>
                         """, unsafe_allow_html=True)
                     
-                    st.dataframe(df_res, use_container_width=True, hide_index=True)
+                    with col4:
+                        st.markdown(f"""
+                        <div class="metric-taux">
+                            <div class="metric-number">{taux}%</div>
+                            <div class="metric-label">🎯 TAUX</div>
+                        </div>
+                        """, unsafe_allow_html=True)
                     
+                    # Tableau
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    
+                    def color_status(val):
+                        if val == '✅':
+                            return 'background-color: #d1fae5; color: #065f46; font-weight: bold'
+                        elif val == '❌':
+                            return 'background-color: #fee2e2; color: #991b1b; font-weight: bold'
+                        elif val == '⚠️':
+                            return 'background-color: #fed7aa; color: #92400e; font-weight: bold'
+                        return ''
+                    
+                    styled_df = df_res.style.map(color_status, subset=['Status'])
+                    st.dataframe(styled_df, use_container_width=True, hide_index=True)
+                    
+                    # Export
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine='openpyxl') as writer:
                         df_res.to_excel(writer, sheet_name='Résultats', index=False)
                         if erreurs:
                             pd.DataFrame({'Erreurs': erreurs}).to_excel(writer, sheet_name='Erreurs', index=False)
                     
-                    st.download_button("📥 Télécharger", output.getvalue(), "verification.xlsx", use_container_width=True)
+                    st.download_button("📥 Télécharger Excel", output.getvalue(), "verification.xlsx", use_container_width=True)
                     
                     if incorrects == 0:
                         st.balloons()
-                        st.success("Toutes les vérifications sont correctes")
+                        st.success("🎉 Félicitations ! Toutes les vérifications sont correctes !")
 
 else:
     st.markdown("""
     <div class="info-box" style="text-align: center;">
-        Chargez les fichiers pour commencer
+        ✨ Commencez par charger les fichiers ci-dessus
     </div>
     """, unsafe_allow_html=True)
 
 # Footer
 st.markdown("""
 <div class="footer">
-    Formule : Oversent réel = Oversent stock (ligne précédente) + Packing list qty - Qty for
+    📐 Formule : Oversent réel = Oversent stock (ligne N-1) + Packing list qty - Qty for
 </div>
 """, unsafe_allow_html=True)
