@@ -101,7 +101,6 @@ st.markdown("""
         padding: 0.5rem;
     }
     
-    /* Style du tableau */
     .result-table {
         width: 100%;
         border-collapse: collapse;
@@ -302,17 +301,33 @@ def exporter_excel_stylise(df, erreurs):
     return output.getvalue()
 
 def afficher_tableau_html(df):
-    """Affiche un tableau HTML propre avec bordures"""
+    """Affiche un tableau HTML propre avec bordures et nouveaux noms de colonnes"""
     
-    # Renommer les colonnes pour plus de clarté
+    # Renommer les colonnes
     df_aff = df.copy()
+    colonnes_rename = {
+        'Modèle': 'Modèle',
+        'Part N': 'Part N',
+        'Description': 'Description',
+        'Remarks': 'Remarks',
+        'IDL': 'IDL',
+        'Qty for': 'Qty need in this lot',
+        'Packing Qty': 'Qty sent in this lot',
+        'Oversent Stock': 'Oversent in the previous IDL',
+        'Oversent FRS': 'Oversent of reply',
+        'Oversent Calculé': 'Oversent calculated',
+        'Écart': 'GAP',
+        'Status': 'Status'
+    }
+    
+    df_aff = df_aff.rename(columns=colonnes_rename)
     
     html = '<div style="overflow-x: auto;">'
     html += '<table class="result-table" style="width: 100%; border-collapse: collapse;">'
     
     # En-têtes
     html += '<thead>'
-    html += '<tr>'
+    html += ' hilab'
     for col in df_aff.columns:
         html += f'<th style="background-color: #1e3c72; color: white; padding: 10px; border: 1px solid #2a5298; font-weight: bold;">{col}</th>'
     html += '</tr>'
@@ -321,7 +336,7 @@ def afficher_tableau_html(df):
     # Corps
     html += '<tbody>'
     for _, row in df_aff.iterrows():
-        html += '<tr>'
+        html += ' hilab'
         for col in df_aff.columns:
             value = row[col]
             
@@ -441,7 +456,7 @@ if reply_file and stock_files:
                         
                         for _, row in df_filtre.iterrows():
                             part_n = row['Part_N']
-                            desc = row['Description'][:50]
+                            desc = row['Description'][:50] if pd.notna(row['Description']) else ""
                             qty_for = row['Qty_for']
                             packing_qty = row['Packing_qty']
                             oversent_frs = row['Oversent_FRS']
@@ -544,12 +559,23 @@ if reply_file and stock_files:
             
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # Afficher le tableau avec scroll horizontal
+            # Afficher le tableau avec les nouveaux noms de colonnes
             html_table = afficher_tableau_html(df_res)
             st.markdown(html_table, unsafe_allow_html=True)
             
-            # Export Excel
-            excel_data = exporter_excel_stylise(df_res, erreurs)
+            # Export Excel (avec les nouveaux noms)
+            df_export = df_res.copy()
+            colonnes_rename_export = {
+                'Qty for': 'Qty need in this lot',
+                'Packing Qty': 'Qty sent in this lot',
+                'Oversent Stock': 'Oversent in the previous IDL',
+                'Oversent FRS': 'Oversent of reply',
+                'Oversent Calculé': 'Oversent calculated',
+                'Écart': 'GAP'
+            }
+            df_export = df_export.rename(columns=colonnes_rename_export)
+            
+            excel_data = exporter_excel_stylise(df_export, erreurs)
             
             col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
             with col_btn2:
