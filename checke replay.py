@@ -12,11 +12,6 @@ st.set_page_config(
 # ==================== CSS PERSONNALISÉ ====================
 st.markdown("""
 <style>
-    /* Style général */
-    .stApp {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    }
-    
     /* En-tête */
     .header {
         background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
@@ -407,7 +402,7 @@ if reply_file and stock_files:
                             return 'background-color: #fed7aa; color: #92400e; font-weight: bold; border-radius: 5px;'
                         return ''
                     
-                    # Appliquer le style (utilisation de map au lieu de applymap)
+                    # Appliquer le style
                     styled_df = df_res.style.map(color_status, subset=['Status'])
                     
                     st.dataframe(
