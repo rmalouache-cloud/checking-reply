@@ -12,92 +12,174 @@ st.set_page_config(
 # ==================== CSS ====================
 st.markdown("""
 <style>
+    /* Police */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    * {
+        font-family: 'Inter', sans-serif;
+    }
+    
+    /* Pas de fond forcé - laisse le fond Streamlit par défaut */
+    
+    /* Cartes */
+    .card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        border: 1px solid #e5e7eb;
+    }
+    
+    .card-title {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: #1f2937;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    /* Zone upload */
+    .upload-area {
+        border: 2px dashed #c7d2fe;
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+        background: #fafafa;
+        transition: all 0.2s;
+    }
+    
+    .upload-area:hover {
+        border-color: #6366f1;
+        background: #f5f3ff;
+    }
+    
+    /* Métriques colorées */
+    .metric-total {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+        color: white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .metric-correct {
+        background: linear-gradient(135deg, #10b981, #059669);
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+        color: white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .metric-incorrect {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+        color: white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .metric-taux {
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+        color: white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .metric-number {
+        font-size: 2rem;
+        font-weight: 700;
+    }
+    
+    .metric-label {
+        font-size: 0.75rem;
+        opacity: 0.9;
+        margin-top: 0.3rem;
+    }
+    
     /* En-tête */
     .header {
-        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        background: white;
         padding: 1.5rem;
-        border-radius: 15px;
+        border-radius: 16px;
         margin-bottom: 1.5rem;
         text-align: center;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
     }
     
     .header h1 {
-        color: white;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
         margin: 0;
         font-size: 2rem;
         font-weight: 700;
     }
     
     .header p {
-        color: #e0e0e0;
-        margin: 0.3rem 0 0 0;
-        font-size: 0.9rem;
+        color: #6b7280;
+        margin: 0.5rem 0 0 0;
     }
     
-    /* Zone upload simplifiée */
-    .upload-area {
-        border: 2px dashed #2a5298;
-        border-radius: 12px;
-        padding: 1rem;
-        text-align: center;
-        background: #f8f9fa;
-        margin-bottom: 1rem;
-    }
-    
-    /* Métriques compactes */
-    .metric-box {
+    /* Bouton */
+    .stButton > button {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 12px;
-        padding: 0.8rem;
-        text-align: center;
         color: white;
+        border: none;
+        padding: 0.7rem 2rem;
+        font-weight: 600;
+        border-radius: 40px;
+        font-size: 0.9rem;
+        transition: all 0.2s;
     }
     
-    .metric-number {
-        font-size: 1.8rem;
-        font-weight: bold;
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(102,126,234,0.2);
     }
     
-    .metric-label {
-        font-size: 0.8rem;
-        opacity: 0.9;
-    }
-    
-    /* Info box compacte */
-    .info-box {
-        background: #e8f0fe;
+    /* Input */
+    .stTextInput > div > div > input {
+        border-radius: 10px;
+        border: 1px solid #e5e7eb;
         padding: 0.5rem 1rem;
-        border-radius: 8px;
+    }
+    
+    .stTextInput > div > div > input:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+    }
+    
+    /* Info box */
+    .info-box {
+        background: #f0fdf4;
+        padding: 0.6rem 1rem;
+        border-radius: 10px;
         font-size: 0.85rem;
+        color: #166534;
         margin-bottom: 1rem;
+        border-left: 3px solid #10b981;
     }
     
     /* Footer */
     .footer {
         text-align: center;
-        padding: 1rem;
-        margin-top: 1.5rem;
-        border-top: 1px solid #ddd;
-        color: #666;
+        padding: 1.5rem;
+        margin-top: 2rem;
+        color: #9ca3af;
         font-size: 0.8rem;
+        border-top: 1px solid #e5e7eb;
     }
     
-    /* Bouton */
-    .stButton > button {
-        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-        color: white;
-        border: none;
-        padding: 0.5rem 2rem;
-        font-weight: 600;
-        border-radius: 8px;
-    }
-    
-    /* Réduire les marges */
-    .block-container {
-        padding-top: 1rem;
-        padding-bottom: 0rem;
-    }
-    
+    /* Divider */
     hr {
         margin: 1rem 0;
     }
@@ -107,8 +189,8 @@ st.markdown("""
 # ==================== EN-TÊTE ====================
 st.markdown("""
 <div class="header">
-    <h1>✅ Vérification des Réponses Fournisseur</h1>
-    <p>Contrôle automatique des quantités Oversent vs Stock</p>
+    <h1>✅ Vérification des réponses fournisseur</h1>
+    <p>Contrôle automatique des quantités Oversent</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -155,35 +237,47 @@ def get_oversent_stock(df_stock, part_n, idl):
     df_filtered = df_stock[mask].reset_index(drop=True)
     
     if df_filtered.empty:
-        raise ValueError(f"Part N non trouvé")
+        raise ValueError("Part N non trouvé")
     
     mask_idl = df_filtered[col_idl].astype(str).str.strip() == str(idl).strip()
     idx = df_filtered[mask_idl].index
     
     if len(idx) == 0:
-        raise ValueError(f"IDL non trouvé")
+        raise ValueError("IDL non trouvé")
     
     pos = idx[0]
     if pos == 0:
-        raise ValueError(f"IDL à la première ligne")
+        raise ValueError("IDL à la première ligne")
     
     val = df_filtered.iloc[pos - 1, 10]
     return float(val) if pd.notna(val) else 0.0
 
-# ==================== INTERFACE COMPACTE ====================
+# ==================== INTERFACE ====================
 
-# Upload en ligne
+# Upload
 col1, col2 = st.columns(2)
 
 with col1:
-    st.markdown('<div class="upload-area">', unsafe_allow_html=True)
-    reply_file = st.file_uploader("📊 Fichier Reply", type=['xlsx', 'xls'], label_visibility="collapsed")
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="card">
+        <div class="card-title">
+            <span>📊</span> Fichier Reply
+        </div>
+        <div class="upload-area">
+    """, unsafe_allow_html=True)
+    reply_file = st.file_uploader("reply.xlsx", type=['xlsx', 'xls'], label_visibility="collapsed")
+    st.markdown('</div></div>', unsafe_allow_html=True)
 
 with col2:
-    st.markdown('<div class="upload-area">', unsafe_allow_html=True)
-    stock_files = st.file_uploader("📦 Fichiers Stock", type=['xlsx', 'xls'], accept_multiple_files=True, label_visibility="collapsed")
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="card">
+        <div class="card-title">
+            <span>📦</span> Fichiers Stock
+        </div>
+        <div class="upload-area">
+    """, unsafe_allow_html=True)
+    stock_files = st.file_uploader("Fichiers stock", type=['xlsx', 'xls'], accept_multiple_files=True, label_visibility="collapsed")
+    st.markdown('</div></div>', unsafe_allow_html=True)
 
 if reply_file and stock_files:
     
@@ -193,29 +287,36 @@ if reply_file and stock_files:
     
     if dict_reply and dict_stocks:
         
-        # Info feuilles
         st.markdown(f"""
         <div class="info-box">
-            📁 {len(dict_reply)} feuille(s) : {', '.join(dict_reply.keys())}
+            📁 {len(dict_reply)} feuille(s) : <strong>{', '.join(dict_reply.keys())}</strong>
         </div>
         """, unsafe_allow_html=True)
         
-        # IDL par modèle
-        st.markdown("**🔑 IDL par modèle**")
+        # IDL
+        st.markdown("""
+        <div class="card">
+            <div class="card-title">
+                <span>🔑</span> IDL par modèle
+            </div>
+        """, unsafe_allow_html=True)
         
         idl_par_modele = {}
         cols = st.columns(min(3, len(dict_reply)))
         
         for i, modele in enumerate(dict_reply.keys()):
             with cols[i % len(cols)]:
-                idl = st.text_input(f"📱 {modele}", key=f"idl_{modele}", placeholder="IDL")
+                st.markdown(f"<span style='font-weight:500;'>📱 {modele}</span>", unsafe_allow_html=True)
+                idl = st.text_input("", key=f"idl_{modele}", placeholder="IDL", label_visibility="collapsed")
                 if idl:
                     idl_par_modele[modele] = idl
         
+        st.markdown('</div>', unsafe_allow_html=True)
+        
         # Bouton
-        col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
+        col_btn1, col_btn2, col_btn3 = st.columns([1,2,1])
         with col_btn2:
-            verifier = st.button("🚀 LANCER LA VÉRIFICATION", use_container_width=True)
+            verifier = st.button("🚀 VÉRIFIER", use_container_width=True)
         
         if verifier:
             if not idl_par_modele:
@@ -259,7 +360,9 @@ if reply_file and stock_files:
                                 erreurs.append(f"{part_n}: Fichier {moka_file} non trouvé")
                                 resultats.append({
                                     'Modèle': modele, 'Part N': part_n, 'Description': desc,
-                                    'Remarks': remarks, 'Status': '❌'
+                                    'Remarks': remarks, 'Qty for': qty_for, 'Packing Qty': packing_qty,
+                                    'Oversent FRS': oversent_frs, 'Oversent Calculé': None,
+                                    'Écart': None, 'Status': '❌'
                                 })
                                 continue
                             
@@ -289,7 +392,6 @@ if reply_file and stock_files:
                 
                 if resultats:
                     st.markdown("<hr>", unsafe_allow_html=True)
-                    st.markdown("**📊 Résultats**")
                     
                     df_res = pd.DataFrame(resultats)
                     total = len(df_res)
@@ -297,20 +399,19 @@ if reply_file and stock_files:
                     incorrects = len(df_res[df_res['Status'] == '❌'])
                     taux = f"{corrects/total*100:.0f}" if total > 0 else "0"
                     
-                    # Métriques compactes
                     col1, col2, col3, col4 = st.columns(4)
                     
                     with col1:
                         st.markdown(f"""
-                        <div class="metric-box">
+                        <div class="metric-total">
                             <div class="metric-number">{total}</div>
-                            <div class="metric-label">TOTAL</div>
+                            <div class="metric-label">📊 TOTAL</div>
                         </div>
                         """, unsafe_allow_html=True)
                     
                     with col2:
                         st.markdown(f"""
-                        <div class="metric-box" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                        <div class="metric-correct">
                             <div class="metric-number">{corrects}</div>
                             <div class="metric-label">✅ CORRECTS</div>
                         </div>
@@ -318,7 +419,7 @@ if reply_file and stock_files:
                     
                     with col3:
                         st.markdown(f"""
-                        <div class="metric-box" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+                        <div class="metric-incorrect">
                             <div class="metric-number">{incorrects}</div>
                             <div class="metric-label">❌ INCORRECTS</div>
                         </div>
@@ -326,13 +427,14 @@ if reply_file and stock_files:
                     
                     with col4:
                         st.markdown(f"""
-                        <div class="metric-box" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                        <div class="metric-taux">
                             <div class="metric-number">{taux}%</div>
-                            <div class="metric-label">TAUX</div>
+                            <div class="metric-label">🎯 TAUX</div>
                         </div>
                         """, unsafe_allow_html=True)
                     
-                    # Tableau
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    
                     def color_status(val):
                         if val == '✅':
                             return 'background-color: #d1fae5; color: #065f46; font-weight: bold'
@@ -345,7 +447,6 @@ if reply_file and stock_files:
                     styled_df = df_res.style.map(color_status, subset=['Status'])
                     st.dataframe(styled_df, use_container_width=True, hide_index=True)
                     
-                    # Export
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine='openpyxl') as writer:
                         df_res.to_excel(writer, sheet_name='Résultats', index=False)
@@ -356,10 +457,14 @@ if reply_file and stock_files:
                     
                     if incorrects == 0:
                         st.balloons()
-                        st.success("🎉 Toutes les vérifications sont correctes !")
+                        st.success("🎉 Félicitations ! Toutes les vérifications sont correctes !")
 
 else:
-    st.info("👈 Chargez les fichiers pour commencer")
+    st.markdown("""
+    <div class="info-box" style="text-align: center;">
+        ✨ Chargez les fichiers pour commencer
+    </div>
+    """, unsafe_allow_html=True)
 
 # Footer
 st.markdown("""
