@@ -98,33 +98,6 @@ st.markdown("""
         margin-top: 0.5rem;
     }
     
-    /* Badges de statut */
-    .badge-success {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        color: white;
-        padding: 0.3rem 0.8rem;
-        border-radius: 20px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        display: inline-block;
-    }
-    
-    .badge-error {
-        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-        color: white;
-        padding: 0.3rem 0.8rem;
-        border-radius: 20px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        display: inline-block;
-    }
-    
-    /* Tableau stylisé */
-    .dataframe {
-        border-radius: 15px;
-        overflow: hidden;
-    }
-    
     /* Footer */
     .footer {
         text-align: center;
@@ -424,18 +397,21 @@ if reply_file and stock_files:
                     # Tableau stylisé
                     st.markdown("<br>", unsafe_allow_html=True)
                     
-                    # Colorer les colonnes dans le dataframe
+                    # Fonction de coloration pour les stats
                     def color_status(val):
                         if val == '✅':
-                            return 'background-color: #d1fae5; color: #065f46; font-weight: bold'
+                            return 'background-color: #d1fae5; color: #065f46; font-weight: bold; border-radius: 5px;'
                         elif val == '❌':
-                            return 'background-color: #fee2e2; color: #991b1b; font-weight: bold'
+                            return 'background-color: #fee2e2; color: #991b1b; font-weight: bold; border-radius: 5px;'
                         elif val == '⚠️':
-                            return 'background-color: #fed7aa; color: #92400e; font-weight: bold'
+                            return 'background-color: #fed7aa; color: #92400e; font-weight: bold; border-radius: 5px;'
                         return ''
                     
+                    # Appliquer le style (utilisation de map au lieu de applymap)
+                    styled_df = df_res.style.map(color_status, subset=['Status'])
+                    
                     st.dataframe(
-                        df_res.style.applymap(color_status, subset=['Status']),
+                        styled_df,
                         use_container_width=True,
                         hide_index=True,
                         height=400
