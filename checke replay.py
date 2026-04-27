@@ -100,6 +100,61 @@ st.markdown("""
         border: 1px solid #d0d0d0;
         padding: 0.5rem;
     }
+    
+    /* Style du tableau */
+    .result-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+        overflow-x: auto;
+        display: block;
+    }
+    
+    .result-table th {
+        background-color: #1e3c72;
+        color: white;
+        padding: 10px 8px;
+        border: 1px solid #2a5298;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+    
+    .result-table td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        white-space: nowrap;
+    }
+    
+    .result-table tr:hover {
+        background-color: #f5f5f5;
+    }
+    
+    .status-success {
+        background-color: #d1fae5;
+        color: #065f46;
+        font-weight: bold;
+        padding: 4px 8px;
+        border-radius: 4px;
+        display: inline-block;
+    }
+    
+    .status-error {
+        background-color: #fee2e2;
+        color: #991b1b;
+        font-weight: bold;
+        padding: 4px 8px;
+        border-radius: 4px;
+        display: inline-block;
+    }
+    
+    .status-warning {
+        background-color: #fed7aa;
+        color: #92400e;
+        font-weight: bold;
+        padding: 4px 8px;
+        border-radius: 4px;
+        display: inline-block;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -179,7 +234,6 @@ def exporter_excel_stylise(df, erreurs):
         workbook = writer.book
         worksheet = writer.sheets['Résultats']
         
-        # Définir les styles
         thin_border = Border(
             left=Side(style='thin'),
             right=Side(style='thin'),
@@ -200,7 +254,6 @@ def exporter_excel_stylise(df, erreurs):
         warning_fill = PatternFill(start_color='fed7aa', end_color='fed7aa', fill_type='solid')
         warning_font = Font(color='92400e', bold=True)
         
-        # Appliquer aux en-têtes
         for col_idx, column in enumerate(df.columns, 1):
             cell = worksheet.cell(row=1, column=col_idx)
             cell.fill = header_fill
@@ -208,7 +261,6 @@ def exporter_excel_stylise(df, erreurs):
             cell.alignment = header_alignment
             cell.border = thin_border
         
-        # Appliquer aux cellules
         for row_idx in range(2, len(df) + 2):
             for col_idx in range(1, len(df.columns) + 1):
                 cell = worksheet.cell(row=row_idx, column=col_idx)
@@ -226,7 +278,6 @@ def exporter_excel_stylise(df, erreurs):
                         cell.fill = warning_fill
                         cell.font = warning_font
         
-        # Ajuster largeur colonnes
         for column in worksheet.columns:
             max_length = 0
             column_letter = column[0].column_letter
@@ -251,18 +302,30 @@ def exporter_excel_stylise(df, erreurs):
     return output.getvalue()
 
 def afficher_tableau_html(df):
-    """Affiche un tableau HTML avec bordures et couleurs"""
-    html = '<table style="width:100%; border-collapse: collapse; font-size: 14px;">'
+    """Affiche un tableau HTML propre avec bordures"""
     
-    html += '<thead><tr>'
-    for col in df.columns:
-        html += f'<th style="background-color: #1e3c72; color: white; padding: 10px; border: 1px solid #2a5298;">{col}</th>'
-    html += '</table></thead><tbody>'
+    # Renommer les colonnes pour plus de clarté
+    df_aff = df.copy()
     
-    for _, row in df.iterrows():
+    html = '<div style="overflow-x: auto;">'
+    html += '<table class="result-table" style="width: 100%; border-collapse: collapse;">'
+    
+    # En-têtes
+    html += '<thead>'
+    html += '<tr>'
+    for col in df_aff.columns:
+        html += f'<th style="background-color: #1e3c72; color: white; padding: 10px; border: 1px solid #2a5298; font-weight: bold;">{col}</th>'
+    html += '</tr>'
+    html += '</thead>'
+    
+    # Corps
+    html += '<tbody>'
+    for _, row in df_aff.iterrows():
         html += '<tr>'
-        for col in df.columns:
+        for col in df_aff.columns:
             value = row[col]
+            
+            # Style pour la colonne Status
             if col == 'Status':
                 if value == '✅':
                     html += f'<td style="border: 1px solid #ddd; padding: 8px; text-align: center;"><span style="background-color: #d1fae5; color: #065f46; font-weight: bold; padding: 4px 8px; border-radius: 4px;">{value}</span></td>'
@@ -271,14 +334,17 @@ def afficher_tableau_html(df):
                 elif value == '⚠️':
                     html += f'<td style="border: 1px solid #ddd; padding: 8px; text-align: center;"><span style="background-color: #fed7aa; color: #92400e; font-weight: bold; padding: 4px 8px; border-radius: 4px;">{value}</span></td>'
                 else:
-                    html += f'<td style="border: 1px solid #ddd; padding: 8px;">{value}</table>'
+                    html += f'<td style="border: 1px solid #ddd; padding: 8px;">{value}</td>'
             else:
+                # Alignement pour les nombres
                 if isinstance(value, (int, float)):
                     html += f'<td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{value}</td>'
                 else:
                     html += f'<td style="border: 1px solid #ddd; padding: 8px;">{value}</td>'
         html += '</tr>'
-    html += '</tbody></table>'
+    html += '</tbody>'
+    html += '</table>'
+    html += '</div>'
     
     return html
 
@@ -391,8 +457,18 @@ if reply_file and stock_files:
                             if not stock_file:
                                 erreurs.append(f"{part_n}: Fichier {moka_file} non trouvé")
                                 resultats.append({
-                                    'Modèle': modele, 'Part N': part_n, 'Description': desc,
-                                    'Remarks': remarks, 'Status': '❌'
+                                    'Modèle': modele, 
+                                    'Part N': part_n, 
+                                    'Description': desc,
+                                    'Remarks': remarks, 
+                                    'IDL': idl,
+                                    'Qty for': qty_for, 
+                                    'Packing Qty': packing_qty,
+                                    'Oversent Stock': '-',
+                                    'Oversent FRS': oversent_frs,
+                                    'Oversent Calculé': '-',
+                                    'Écart': '-',
+                                    'Status': '❌'
                                 })
                                 continue
                             
@@ -403,9 +479,13 @@ if reply_file and stock_files:
                                 correct = abs(ecart) < 0.01
                                 
                                 resultats.append({
-                                    'Modèle': modele, 'Part N': part_n, 'Description': desc,
-                                    'Remarks': remarks, 'IDL': idl,
-                                    'Qty for': qty_for, 'Packing Qty': packing_qty,
+                                    'Modèle': modele, 
+                                    'Part N': part_n, 
+                                    'Description': desc,
+                                    'Remarks': remarks, 
+                                    'IDL': idl,
+                                    'Qty for': qty_for, 
+                                    'Packing Qty': packing_qty,
                                     'Oversent Stock': oversent_stock,
                                     'Oversent FRS': oversent_frs,
                                     'Oversent Calculé': round(oversent_calc, 1),
@@ -416,16 +496,26 @@ if reply_file and stock_files:
                             except Exception as e:
                                 erreurs.append(f"{part_n}: {str(e)}")
                                 resultats.append({
-                                    'Modèle': modele, 'Part N': part_n, 'Description': desc,
-                                    'Remarks': remarks, 'Status': '⚠️'
+                                    'Modèle': modele, 
+                                    'Part N': part_n, 
+                                    'Description': desc,
+                                    'Remarks': remarks, 
+                                    'IDL': idl,
+                                    'Qty for': qty_for, 
+                                    'Packing Qty': packing_qty,
+                                    'Oversent Stock': 'Erreur',
+                                    'Oversent FRS': oversent_frs,
+                                    'Oversent Calculé': 'Erreur',
+                                    'Écart': 'Erreur',
+                                    'Status': '⚠️'
                                 })
                 
-                # Stocker les résultats dans session_state
+                # Stocker les résultats
                 st.session_state.resultats_affiches = True
                 st.session_state.df_resultats = pd.DataFrame(resultats)
                 st.session_state.erreurs_list = erreurs
         
-        # Afficher les résultats s'ils existent dans session_state
+        # Afficher les résultats
         if st.session_state.resultats_affiches and st.session_state.df_resultats is not None:
             df_res = st.session_state.df_resultats
             erreurs = st.session_state.erreurs_list
@@ -454,20 +544,22 @@ if reply_file and stock_files:
             
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # Afficher le tableau
+            # Afficher le tableau avec scroll horizontal
             html_table = afficher_tableau_html(df_res)
             st.markdown(html_table, unsafe_allow_html=True)
             
-            # Export Excel (les résultats restent affichés)
+            # Export Excel
             excel_data = exporter_excel_stylise(df_res, erreurs)
             
-            st.download_button(
-                label="📥 Télécharger Excel (avec bordures et couleurs)",
-                data=excel_data,
-                file_name="verification_resultats.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
+            col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
+            with col_btn2:
+                st.download_button(
+                    label="📥 Télécharger Excel (avec bordures et couleurs)",
+                    data=excel_data,
+                    file_name="verification_resultats.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
             
             if incorrects == 0:
                 st.balloons()
