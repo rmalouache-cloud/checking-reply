@@ -9,7 +9,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# ==================== CSS SIMPLE ====================
+# ==================== CSS ====================
 st.markdown("""
 <style>
     /* En-tête */
@@ -32,7 +32,7 @@ st.markdown("""
         margin: 0.5rem 0 0 0;
     }
     
-    /* Cartes normales */
+    /* Cartes */
     .card {
         background: white;
         border-radius: 12px;
@@ -104,7 +104,7 @@ st.markdown("""
         margin-top: 0.3rem;
     }
     
-    /* Info box - texte visible */
+    /* Info box */
     .info-box {
         background: #e0e7ff;
         padding: 0.8rem;
@@ -151,11 +151,6 @@ st.markdown("""
         min-width: 250px;
     }
     
-    .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    }
-    
     /* Input */
     .stTextInput > div > div > input {
         border-radius: 8px;
@@ -163,31 +158,60 @@ st.markdown("""
         padding: 0.5rem;
     }
     
-    /* Style du tableau */
-    .dataframe {
-        border: 1px solid #ddd !important;
-        border-radius: 8px !important;
-        overflow: hidden !important;
+    /* Style du tableau avec bordures */
+    .dataframe-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
     }
     
-    .dataframe th {
-        background-color: #1e3c72 !important;
-        color: white !important;
-        font-weight: 600 !important;
-        padding: 10px !important;
-        border: 1px solid #2a5298 !important;
+    .dataframe-table th {
+        background-color: #1e3c72;
+        color: white;
+        padding: 10px;
+        border: 1px solid #2a5298;
+        text-align: left;
+        font-weight: 600;
     }
     
-    .dataframe td {
-        border: 1px solid #ddd !important;
-        padding: 8px !important;
-    }
-    
-    /* Style pour le dataframe Streamlit */
-    .stDataFrame {
+    .dataframe-table td {
+        padding: 8px;
         border: 1px solid #ddd;
-        border-radius: 8px;
-        overflow: hidden;
+    }
+    
+    .dataframe-table tr:hover {
+        background-color: #f5f5f5;
+    }
+    
+    /* Couleurs pour les status */
+    .status-success {
+        background-color: #d1fae5;
+        color: #065f46;
+        font-weight: bold;
+        text-align: center;
+        border-radius: 4px;
+        padding: 4px 8px;
+        display: inline-block;
+    }
+    
+    .status-error {
+        background-color: #fee2e2;
+        color: #991b1b;
+        font-weight: bold;
+        text-align: center;
+        border-radius: 4px;
+        padding: 4px 8px;
+        display: inline-block;
+    }
+    
+    .status-warning {
+        background-color: #fed7aa;
+        color: #92400e;
+        font-weight: bold;
+        text-align: center;
+        border-radius: 4px;
+        padding: 4px 8px;
+        display: inline-block;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -258,6 +282,46 @@ def get_oversent_stock(df_stock, part_n, idl):
     val = df_filtered.iloc[pos - 1, 10]
     return float(val) if pd.notna(val) else 0.0
 
+def afficher_tableau_avec_bordure(df):
+    """Affiche un tableau HTML avec bordures et couleurs"""
+    
+    # Générer le HTML du tableau
+    html = '<table class="dataframe-table" style="width:100%; border-collapse: collapse;">'
+    
+    # En-têtes
+    html += '<thead><tr>'
+    for col in df.columns:
+        html += f'<th style="background-color: #1e3c72; color: white; padding: 10px; border: 1px solid #2a5298;">{col}</th>'
+    html += '</tr></thead>'
+    
+    # Corps du tableau
+    html += '<tbody>'
+    for _, row in df.iterrows():
+        html += '<tr>'
+        for col in df.columns:
+            value = row[col]
+            
+            # Appliquer les couleurs pour la colonne Status
+            if col == 'Status':
+                if value == '✅':
+                    html += f'<td style="border: 1px solid #ddd; padding: 8px; text-align: center;"><span style="background-color: #d1fae5; color: #065f46; font-weight: bold; padding: 4px 8px; border-radius: 4px; display: inline-block;">{value}</span></td>'
+                elif value == '❌':
+                    html += f'<td style="border: 1px solid #ddd; padding: 8px; text-align: center;"><span style="background-color: #fee2e2; color: #991b1b; font-weight: bold; padding: 4px 8px; border-radius: 4px; display: inline-block;">{value}</span></td>'
+                elif value == '⚠️':
+                    html += f'<td style="border: 1px solid #ddd; padding: 8px; text-align: center;"><span style="background-color: #fed7aa; color: #92400e; font-weight: bold; padding: 4px 8px; border-radius: 4px; display: inline-block;">{value}</span></td>'
+                else:
+                    html += f'<td style="border: 1px solid #ddd; padding: 8px;">{value}</td>'
+            else:
+                # Centrer les nombres
+                if isinstance(value, (int, float)):
+                    html += f'<td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{value}</td>'
+                else:
+                    html += f'<td style="border: 1px solid #ddd; padding: 8px;">{value}</td>'
+        html += '</tr>'
+    html += '</tbody></table>'
+    
+    return html
+
 # ==================== INTERFACE ====================
 
 # Upload
@@ -293,7 +357,6 @@ if reply_file and stock_files:
     
     if dict_reply and dict_stocks:
         
-        # Info box avec texte visible
         st.markdown(f"""
         <div class="info-box">
             📁 <strong>{len(dict_reply)} feuille(s) trouvée(s) : {', '.join(dict_reply.keys())}</strong>
@@ -448,28 +511,11 @@ if reply_file and stock_files:
                     
                     st.markdown("<br>", unsafe_allow_html=True)
                     
-                    # Fonction de coloration pour le tableau
-                    def color_status(val):
-                        if val == '✅':
-                            return 'background-color: #d1fae5; color: #065f46; font-weight: bold; text-align: center'
-                        elif val == '❌':
-                            return 'background-color: #fee2e2; color: #991b1b; font-weight: bold; text-align: center'
-                        elif val == '⚠️':
-                            return 'background-color: #fed7aa; color: #92400e; font-weight: bold; text-align: center'
-                        return ''
+                    # Afficher le tableau HTML avec bordures
+                    html_table = afficher_tableau_avec_bordure(df_res)
+                    st.markdown(html_table, unsafe_allow_html=True)
                     
-                    # Appliquer le style avec bordures
-                    styled_df = df_res.style.map(color_status, subset=['Status']).set_properties(**{
-                        'border': '1px solid #ddd',
-                        'padding': '8px'
-                    }).set_table_styles([
-                        {'selector': 'thead th', 'props': [('background-color', '#1e3c72'), ('color', 'white'), ('padding', '10px'), ('border', '1px solid #2a5298')]},
-                        {'selector': 'tbody td', 'props': [('border', '1px solid #ddd')]}
-                    ])
-                    
-                    st.dataframe(styled_df, use_container_width=True, hide_index=True)
-                    
-                    # Export
+                    # Export Excel
                     output = io.BytesIO()
                     with pd.ExcelWriter(output, engine='openpyxl') as writer:
                         df_res.to_excel(writer, sheet_name='Résultats', index=False)
