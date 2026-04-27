@@ -176,7 +176,6 @@ def exporter_excel_stylise(df, erreurs):
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, sheet_name='Résultats', index=False)
         
-        # Récupérer le workbook
         workbook = writer.book
         worksheet = writer.sheets['Résultats']
         
@@ -188,12 +187,10 @@ def exporter_excel_stylise(df, erreurs):
             bottom=Side(style='thin')
         )
         
-        # Style pour l'en-tête
         header_fill = PatternFill(start_color='1e3c72', end_color='1e3c72', fill_type='solid')
         header_font = Font(color='FFFFFF', bold=True)
         header_alignment = Alignment(horizontal='center', vertical='center')
         
-        # Styles pour les status
         success_fill = PatternFill(start_color='d1fae5', end_color='d1fae5', fill_type='solid')
         success_font = Font(color='065f46', bold=True)
         
@@ -203,7 +200,7 @@ def exporter_excel_stylise(df, erreurs):
         warning_fill = PatternFill(start_color='fed7aa', end_color='fed7aa', fill_type='solid')
         warning_font = Font(color='92400e', bold=True)
         
-        # Appliquer les styles aux en-têtes
+        # Appliquer aux en-têtes
         for col_idx, column in enumerate(df.columns, 1):
             cell = worksheet.cell(row=1, column=col_idx)
             cell.fill = header_fill
@@ -211,14 +208,13 @@ def exporter_excel_stylise(df, erreurs):
             cell.alignment = header_alignment
             cell.border = thin_border
         
-        # Appliquer les styles aux cellules
+        # Appliquer aux cellules
         for row_idx in range(2, len(df) + 2):
             for col_idx in range(1, len(df.columns) + 1):
                 cell = worksheet.cell(row=row_idx, column=col_idx)
                 cell.border = thin_border
                 cell.alignment = Alignment(horizontal='center' if isinstance(cell.value, (int, float)) else 'left')
                 
-                # Appliquer la couleur en fonction du status
                 if df.columns[col_idx - 1] == 'Status':
                     if cell.value == '✅':
                         cell.fill = success_fill
@@ -230,7 +226,7 @@ def exporter_excel_stylise(df, erreurs):
                         cell.fill = warning_fill
                         cell.font = warning_font
         
-        # Ajuster la largeur des colonnes
+        # Ajuster largeur colonnes
         for column in worksheet.columns:
             max_length = 0
             column_letter = column[0].column_letter
@@ -243,11 +239,9 @@ def exporter_excel_stylise(df, erreurs):
             adjusted_width = min(max_length + 2, 30)
             worksheet.column_dimensions[column_letter].width = adjusted_width
         
-        # Ajouter la feuille d'erreurs si nécessaire
         if erreurs:
             df_erreurs = pd.DataFrame({'Erreurs': erreurs})
             df_erreurs.to_excel(writer, sheet_name='Erreurs', index=False)
-            
             worksheet_erreurs = writer.sheets['Erreurs']
             for row_idx in range(1, len(df_erreurs) + 2):
                 for col_idx in range(1, len(df_erreurs.columns) + 1):
@@ -257,16 +251,14 @@ def exporter_excel_stylise(df, erreurs):
     return output.getvalue()
 
 def afficher_tableau_html(df):
-    """Affiche un tableau HTML avec bordures et couleurs dans Streamlit"""
+    """Affiche un tableau HTML avec bordures et couleurs"""
     html = '<table style="width:100%; border-collapse: collapse; font-size: 14px;">'
     
-    # En-têtes
     html += '<thead><tr>'
     for col in df.columns:
         html += f'<th style="background-color: #1e3c72; color: white; padding: 10px; border: 1px solid #2a5298;">{col}</th>'
-    html += '</tr></thead><tbody>'
+    html += '</table></thead><tbody>'
     
-    # Corps
     for _, row in df.iterrows():
         html += '<tr>'
         for col in df.columns:
@@ -279,7 +271,7 @@ def afficher_tableau_html(df):
                 elif value == '⚠️':
                     html += f'<td style="border: 1px solid #ddd; padding: 8px; text-align: center;"><span style="background-color: #fed7aa; color: #92400e; font-weight: bold; padding: 4px 8px; border-radius: 4px;">{value}</span></td>'
                 else:
-                    html += f'<td style="border: 1px solid #ddd; padding: 8px;">{value}</td>'
+                    html += f'<td style="border: 1px solid #ddd; padding: 8px;">{value}</table>'
             else:
                 if isinstance(value, (int, float)):
                     html += f'<td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{value}</td>'
@@ -289,6 +281,14 @@ def afficher_tableau_html(df):
     html += '</tbody></table>'
     
     return html
+
+# ==================== SESSION STATE ====================
+if 'resultats_affiches' not in st.session_state:
+    st.session_state.resultats_affiches = None
+if 'df_resultats' not in st.session_state:
+    st.session_state.df_resultats = None
+if 'erreurs_list' not in st.session_state:
+    st.session_state.erreurs_list = None
 
 # ==================== INTERFACE ====================
 
@@ -420,52 +420,60 @@ if reply_file and stock_files:
                                     'Remarks': remarks, 'Status': '⚠️'
                                 })
                 
-                if resultats:
-                    st.markdown("---")
-                    st.markdown("""
-                    <div class="card">
-                        <div class="card-title"><span>📊</span> Résultats de la vérification</div>
-                    """, unsafe_allow_html=True)
-                    
-                    df_res = pd.DataFrame(resultats)
-                    total = len(df_res)
-                    corrects = len(df_res[df_res['Status'] == '✅'])
-                    incorrects = len(df_res[df_res['Status'] == '❌'])
-                    taux = f"{corrects/total*100:.0f}" if total > 0 else "0"
-                    
-                    # Métriques
-                    col1, col2, col3, col4 = st.columns(4)
-                    with col1:
-                        st.markdown(f'<div class="metric-total"><div class="metric-number">{total}</div><div class="metric-label">📊 TOTAL</div></div>', unsafe_allow_html=True)
-                    with col2:
-                        st.markdown(f'<div class="metric-correct"><div class="metric-number">{corrects}</div><div class="metric-label">✅ CORRECTS</div></div>', unsafe_allow_html=True)
-                    with col3:
-                        st.markdown(f'<div class="metric-incorrect"><div class="metric-number">{incorrects}</div><div class="metric-label">❌ INCORRECTS</div></div>', unsafe_allow_html=True)
-                    with col4:
-                        st.markdown(f'<div class="metric-taux"><div class="metric-number">{taux}%</div><div class="metric-label">🎯 TAUX</div></div>', unsafe_allow_html=True)
-                    
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    
-                    # Afficher le tableau HTML
-                    html_table = afficher_tableau_html(df_res)
-                    st.markdown(html_table, unsafe_allow_html=True)
-                    
-                    # Export Excel avec bordures et couleurs
-                    excel_data = exporter_excel_stylise(df_res, erreurs)
-                    
-                    st.download_button(
-                        label="📥 Télécharger Excel (avec bordures et couleurs)",
-                        data=excel_data,
-                        file_name="verification_resultats.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True
-                    )
-                    
-                    if incorrects == 0:
-                        st.balloons()
-                        st.success("🎉 Félicitations ! Toutes les vérifications sont correctes !")
-                    
-                    st.markdown('</div>', unsafe_allow_html=True)
+                # Stocker les résultats dans session_state
+                st.session_state.resultats_affiches = True
+                st.session_state.df_resultats = pd.DataFrame(resultats)
+                st.session_state.erreurs_list = erreurs
+        
+        # Afficher les résultats s'ils existent dans session_state
+        if st.session_state.resultats_affiches and st.session_state.df_resultats is not None:
+            df_res = st.session_state.df_resultats
+            erreurs = st.session_state.erreurs_list
+            
+            st.markdown("---")
+            st.markdown("""
+            <div class="card">
+                <div class="card-title"><span>📊</span> Résultats de la vérification</div>
+            """, unsafe_allow_html=True)
+            
+            total = len(df_res)
+            corrects = len(df_res[df_res['Status'] == '✅'])
+            incorrects = len(df_res[df_res['Status'] == '❌'])
+            taux = f"{corrects/total*100:.0f}" if total > 0 else "0"
+            
+            # Métriques
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.markdown(f'<div class="metric-total"><div class="metric-number">{total}</div><div class="metric-label">📊 TOTAL</div></div>', unsafe_allow_html=True)
+            with col2:
+                st.markdown(f'<div class="metric-correct"><div class="metric-number">{corrects}</div><div class="metric-label">✅ CORRECTS</div></div>', unsafe_allow_html=True)
+            with col3:
+                st.markdown(f'<div class="metric-incorrect"><div class="metric-number">{incorrects}</div><div class="metric-label">❌ INCORRECTS</div></div>', unsafe_allow_html=True)
+            with col4:
+                st.markdown(f'<div class="metric-taux"><div class="metric-number">{taux}%</div><div class="metric-label">🎯 TAUX</div></div>', unsafe_allow_html=True)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Afficher le tableau
+            html_table = afficher_tableau_html(df_res)
+            st.markdown(html_table, unsafe_allow_html=True)
+            
+            # Export Excel (les résultats restent affichés)
+            excel_data = exporter_excel_stylise(df_res, erreurs)
+            
+            st.download_button(
+                label="📥 Télécharger Excel (avec bordures et couleurs)",
+                data=excel_data,
+                file_name="verification_resultats.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+            
+            if incorrects == 0:
+                st.balloons()
+                st.success("🎉 Félicitations ! Toutes les vérifications sont correctes !")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
 
 else:
     st.info("👈 Veuillez charger les fichiers pour commencer")
