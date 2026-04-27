@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import io
+from openpyxl import load_workbook
+from openpyxl.styles import PatternFill, Border, Side, Font, Alignment
 
 # Configuration
 st.set_page_config(
@@ -12,7 +14,6 @@ st.set_page_config(
 # ==================== CSS ====================
 st.markdown("""
 <style>
-    /* En-tête */
     .header {
         background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
         padding: 2rem;
@@ -32,7 +33,6 @@ st.markdown("""
         margin: 0.5rem 0 0 0;
     }
     
-    /* Cartes */
     .card {
         background: white;
         border-radius: 12px;
@@ -52,7 +52,6 @@ st.markdown("""
         gap: 0.5rem;
     }
     
-    /* Zone upload */
     .upload-area {
         border: 2px dashed #2a5298;
         border-radius: 10px;
@@ -61,50 +60,13 @@ st.markdown("""
         background: #fafafa;
     }
     
-    /* Métriques */
-    .metric-total {
-        background: #3b82f6;
-        border-radius: 10px;
-        padding: 1rem;
-        text-align: center;
-        color: white;
-    }
+    .metric-total { background: #3b82f6; border-radius: 10px; padding: 1rem; text-align: center; color: white; }
+    .metric-correct { background: #10b981; border-radius: 10px; padding: 1rem; text-align: center; color: white; }
+    .metric-incorrect { background: #ef4444; border-radius: 10px; padding: 1rem; text-align: center; color: white; }
+    .metric-taux { background: #f59e0b; border-radius: 10px; padding: 1rem; text-align: center; color: white; }
+    .metric-number { font-size: 2rem; font-weight: bold; }
+    .metric-label { font-size: 0.8rem; margin-top: 0.3rem; }
     
-    .metric-correct {
-        background: #10b981;
-        border-radius: 10px;
-        padding: 1rem;
-        text-align: center;
-        color: white;
-    }
-    
-    .metric-incorrect {
-        background: #ef4444;
-        border-radius: 10px;
-        padding: 1rem;
-        text-align: center;
-        color: white;
-    }
-    
-    .metric-taux {
-        background: #f59e0b;
-        border-radius: 10px;
-        padding: 1rem;
-        text-align: center;
-        color: white;
-    }
-    
-    .metric-number {
-        font-size: 2rem;
-        font-weight: bold;
-    }
-    
-    .metric-label {
-        font-size: 0.8rem;
-        margin-top: 0.3rem;
-    }
-    
-    /* Info box */
     .info-box {
         background: #e0e7ff;
         padding: 0.8rem;
@@ -114,29 +76,12 @@ st.markdown("""
         font-weight: 500;
     }
     
-    .info-box strong {
-        color: #1e40af;
-    }
-    
-    /* Footer */
     .footer {
         text-align: center;
         padding: 1.5rem;
         margin-top: 2rem;
         border-top: 1px solid #e0e0e0;
         color: #666;
-    }
-    
-    /* Bouton centré */
-    .button-container {
-        display: flex;
-        justify-content: center;
-        margin: 1rem 0;
-    }
-    
-    .stButton {
-        display: flex;
-        justify-content: center;
     }
     
     .stButton > button {
@@ -147,71 +92,13 @@ st.markdown("""
         font-weight: 600;
         border-radius: 8px;
         font-size: 1rem;
-        cursor: pointer;
         min-width: 250px;
     }
     
-    /* Input */
     .stTextInput > div > div > input {
         border-radius: 8px;
         border: 1px solid #d0d0d0;
         padding: 0.5rem;
-    }
-    
-    /* Style du tableau avec bordures */
-    .dataframe-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 14px;
-    }
-    
-    .dataframe-table th {
-        background-color: #1e3c72;
-        color: white;
-        padding: 10px;
-        border: 1px solid #2a5298;
-        text-align: left;
-        font-weight: 600;
-    }
-    
-    .dataframe-table td {
-        padding: 8px;
-        border: 1px solid #ddd;
-    }
-    
-    .dataframe-table tr:hover {
-        background-color: #f5f5f5;
-    }
-    
-    /* Couleurs pour les status */
-    .status-success {
-        background-color: #d1fae5;
-        color: #065f46;
-        font-weight: bold;
-        text-align: center;
-        border-radius: 4px;
-        padding: 4px 8px;
-        display: inline-block;
-    }
-    
-    .status-error {
-        background-color: #fee2e2;
-        color: #991b1b;
-        font-weight: bold;
-        text-align: center;
-        border-radius: 4px;
-        padding: 4px 8px;
-        display: inline-block;
-    }
-    
-    .status-warning {
-        background-color: #fed7aa;
-        color: #92400e;
-        font-weight: bold;
-        text-align: center;
-        border-radius: 4px;
-        padding: 4px 8px;
-        display: inline-block;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -282,37 +169,118 @@ def get_oversent_stock(df_stock, part_n, idl):
     val = df_filtered.iloc[pos - 1, 10]
     return float(val) if pd.notna(val) else 0.0
 
-def afficher_tableau_avec_bordure(df):
-    """Affiche un tableau HTML avec bordures et couleurs"""
+def exporter_excel_stylise(df, erreurs):
+    """Exporte le DataFrame en Excel avec bordures et couleurs"""
+    output = io.BytesIO()
     
-    # Générer le HTML du tableau
-    html = '<table class="dataframe-table" style="width:100%; border-collapse: collapse;">'
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name='Résultats', index=False)
+        
+        # Récupérer le workbook
+        workbook = writer.book
+        worksheet = writer.sheets['Résultats']
+        
+        # Définir les styles
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        # Style pour l'en-tête
+        header_fill = PatternFill(start_color='1e3c72', end_color='1e3c72', fill_type='solid')
+        header_font = Font(color='FFFFFF', bold=True)
+        header_alignment = Alignment(horizontal='center', vertical='center')
+        
+        # Styles pour les status
+        success_fill = PatternFill(start_color='d1fae5', end_color='d1fae5', fill_type='solid')
+        success_font = Font(color='065f46', bold=True)
+        
+        error_fill = PatternFill(start_color='fee2e2', end_color='fee2e2', fill_type='solid')
+        error_font = Font(color='991b1b', bold=True)
+        
+        warning_fill = PatternFill(start_color='fed7aa', end_color='fed7aa', fill_type='solid')
+        warning_font = Font(color='92400e', bold=True)
+        
+        # Appliquer les styles aux en-têtes
+        for col_idx, column in enumerate(df.columns, 1):
+            cell = worksheet.cell(row=1, column=col_idx)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = header_alignment
+            cell.border = thin_border
+        
+        # Appliquer les styles aux cellules
+        for row_idx in range(2, len(df) + 2):
+            for col_idx in range(1, len(df.columns) + 1):
+                cell = worksheet.cell(row=row_idx, column=col_idx)
+                cell.border = thin_border
+                cell.alignment = Alignment(horizontal='center' if isinstance(cell.value, (int, float)) else 'left')
+                
+                # Appliquer la couleur en fonction du status
+                if df.columns[col_idx - 1] == 'Status':
+                    if cell.value == '✅':
+                        cell.fill = success_fill
+                        cell.font = success_font
+                    elif cell.value == '❌':
+                        cell.fill = error_fill
+                        cell.font = error_font
+                    elif cell.value == '⚠️':
+                        cell.fill = warning_fill
+                        cell.font = warning_font
+        
+        # Ajuster la largeur des colonnes
+        for column in worksheet.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 30)
+            worksheet.column_dimensions[column_letter].width = adjusted_width
+        
+        # Ajouter la feuille d'erreurs si nécessaire
+        if erreurs:
+            df_erreurs = pd.DataFrame({'Erreurs': erreurs})
+            df_erreurs.to_excel(writer, sheet_name='Erreurs', index=False)
+            
+            worksheet_erreurs = writer.sheets['Erreurs']
+            for row_idx in range(1, len(df_erreurs) + 2):
+                for col_idx in range(1, len(df_erreurs.columns) + 1):
+                    cell = worksheet_erreurs.cell(row=row_idx, column=col_idx)
+                    cell.border = thin_border
+    
+    return output.getvalue()
+
+def afficher_tableau_html(df):
+    """Affiche un tableau HTML avec bordures et couleurs dans Streamlit"""
+    html = '<table style="width:100%; border-collapse: collapse; font-size: 14px;">'
     
     # En-têtes
     html += '<thead><tr>'
     for col in df.columns:
         html += f'<th style="background-color: #1e3c72; color: white; padding: 10px; border: 1px solid #2a5298;">{col}</th>'
-    html += '</tr></thead>'
+    html += '</tr></thead><tbody>'
     
-    # Corps du tableau
-    html += '<tbody>'
+    # Corps
     for _, row in df.iterrows():
         html += '<tr>'
         for col in df.columns:
             value = row[col]
-            
-            # Appliquer les couleurs pour la colonne Status
             if col == 'Status':
                 if value == '✅':
-                    html += f'<td style="border: 1px solid #ddd; padding: 8px; text-align: center;"><span style="background-color: #d1fae5; color: #065f46; font-weight: bold; padding: 4px 8px; border-radius: 4px; display: inline-block;">{value}</span></td>'
+                    html += f'<td style="border: 1px solid #ddd; padding: 8px; text-align: center;"><span style="background-color: #d1fae5; color: #065f46; font-weight: bold; padding: 4px 8px; border-radius: 4px;">{value}</span></td>'
                 elif value == '❌':
-                    html += f'<td style="border: 1px solid #ddd; padding: 8px; text-align: center;"><span style="background-color: #fee2e2; color: #991b1b; font-weight: bold; padding: 4px 8px; border-radius: 4px; display: inline-block;">{value}</span></td>'
+                    html += f'<td style="border: 1px solid #ddd; padding: 8px; text-align: center;"><span style="background-color: #fee2e2; color: #991b1b; font-weight: bold; padding: 4px 8px; border-radius: 4px;">{value}</span></td>'
                 elif value == '⚠️':
-                    html += f'<td style="border: 1px solid #ddd; padding: 8px; text-align: center;"><span style="background-color: #fed7aa; color: #92400e; font-weight: bold; padding: 4px 8px; border-radius: 4px; display: inline-block;">{value}</span></td>'
+                    html += f'<td style="border: 1px solid #ddd; padding: 8px; text-align: center;"><span style="background-color: #fed7aa; color: #92400e; font-weight: bold; padding: 4px 8px; border-radius: 4px;">{value}</span></td>'
                 else:
                     html += f'<td style="border: 1px solid #ddd; padding: 8px;">{value}</td>'
             else:
-                # Centrer les nombres
                 if isinstance(value, (int, float)):
                     html += f'<td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{value}</td>'
                 else:
@@ -330,9 +298,7 @@ col1, col2 = st.columns(2)
 with col1:
     st.markdown("""
     <div class="card">
-        <div class="card-title">
-            <span>📊</span> Fichier Reply
-        </div>
+        <div class="card-title"><span>📊</span> Fichier Reply</div>
         <div class="upload-area">
     """, unsafe_allow_html=True)
     reply_file = st.file_uploader("reply.xlsx", type=['xlsx', 'xls'], label_visibility="collapsed")
@@ -341,9 +307,7 @@ with col1:
 with col2:
     st.markdown("""
     <div class="card">
-        <div class="card-title">
-            <span>📦</span> Fichiers Stock
-        </div>
+        <div class="card-title"><span>📦</span> Fichiers Stock</div>
         <div class="upload-area">
     """, unsafe_allow_html=True)
     stock_files = st.file_uploader("Fichiers stock", type=['xlsx', 'xls'], accept_multiple_files=True, label_visibility="collapsed")
@@ -366,9 +330,7 @@ if reply_file and stock_files:
         # IDL par modèle
         st.markdown("""
         <div class="card">
-            <div class="card-title">
-                <span>🔑</span> IDL par modèle
-            </div>
+            <div class="card-title"><span>🔑</span> IDL par modèle</div>
         """, unsafe_allow_html=True)
         
         idl_par_modele = {}
@@ -384,11 +346,9 @@ if reply_file and stock_files:
         st.markdown('</div>', unsafe_allow_html=True)
         
         # Bouton centré
-        st.markdown('<div class="button-container">', unsafe_allow_html=True)
         col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
         with col_btn2:
             verifier = st.button("🚀 LANCER LA VÉRIFICATION", use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
         
         if verifier:
             if not idl_par_modele:
@@ -464,9 +424,7 @@ if reply_file and stock_files:
                     st.markdown("---")
                     st.markdown("""
                     <div class="card">
-                        <div class="card-title">
-                            <span>📊</span> Résultats de la vérification
-                        </div>
+                        <div class="card-title"><span>📊</span> Résultats de la vérification</div>
                     """, unsafe_allow_html=True)
                     
                     df_res = pd.DataFrame(resultats)
@@ -475,54 +433,33 @@ if reply_file and stock_files:
                     incorrects = len(df_res[df_res['Status'] == '❌'])
                     taux = f"{corrects/total*100:.0f}" if total > 0 else "0"
                     
+                    # Métriques
                     col1, col2, col3, col4 = st.columns(4)
-                    
                     with col1:
-                        st.markdown(f"""
-                        <div class="metric-total">
-                            <div class="metric-number">{total}</div>
-                            <div class="metric-label">📊 TOTAL</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    
+                        st.markdown(f'<div class="metric-total"><div class="metric-number">{total}</div><div class="metric-label">📊 TOTAL</div></div>', unsafe_allow_html=True)
                     with col2:
-                        st.markdown(f"""
-                        <div class="metric-correct">
-                            <div class="metric-number">{corrects}</div>
-                            <div class="metric-label">✅ CORRECTS</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    
+                        st.markdown(f'<div class="metric-correct"><div class="metric-number">{corrects}</div><div class="metric-label">✅ CORRECTS</div></div>', unsafe_allow_html=True)
                     with col3:
-                        st.markdown(f"""
-                        <div class="metric-incorrect">
-                            <div class="metric-number">{incorrects}</div>
-                            <div class="metric-label">❌ INCORRECTS</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                    
+                        st.markdown(f'<div class="metric-incorrect"><div class="metric-number">{incorrects}</div><div class="metric-label">❌ INCORRECTS</div></div>', unsafe_allow_html=True)
                     with col4:
-                        st.markdown(f"""
-                        <div class="metric-taux">
-                            <div class="metric-number">{taux}%</div>
-                            <div class="metric-label">🎯 TAUX</div>
-                        </div>
-                        """, unsafe_allow_html=True)
+                        st.markdown(f'<div class="metric-taux"><div class="metric-number">{taux}%</div><div class="metric-label">🎯 TAUX</div></div>', unsafe_allow_html=True)
                     
                     st.markdown("<br>", unsafe_allow_html=True)
                     
-                    # Afficher le tableau HTML avec bordures
-                    html_table = afficher_tableau_avec_bordure(df_res)
+                    # Afficher le tableau HTML
+                    html_table = afficher_tableau_html(df_res)
                     st.markdown(html_table, unsafe_allow_html=True)
                     
-                    # Export Excel
-                    output = io.BytesIO()
-                    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                        df_res.to_excel(writer, sheet_name='Résultats', index=False)
-                        if erreurs:
-                            pd.DataFrame({'Erreurs': erreurs}).to_excel(writer, sheet_name='Erreurs', index=False)
+                    # Export Excel avec bordures et couleurs
+                    excel_data = exporter_excel_stylise(df_res, erreurs)
                     
-                    st.download_button("📥 Télécharger Excel", output.getvalue(), "verification.xlsx", use_container_width=True)
+                    st.download_button(
+                        label="📥 Télécharger Excel (avec bordures et couleurs)",
+                        data=excel_data,
+                        file_name="verification_resultats.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
                     
                     if incorrects == 0:
                         st.balloons()
