@@ -9,7 +9,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# ==================== CSS COLORÉ ====================
+# ==================== CSS COLORÉ SANS FOND ====================
 st.markdown("""
 <style>
     /* Police */
@@ -19,19 +19,19 @@ st.markdown("""
         font-family: 'Inter', sans-serif;
     }
     
-    /* Fond */
+    /* Fond blanc */
     .stApp {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: #ffffff;
     }
     
     /* Cartes */
     .card {
-        background: white;
+        background: #ffffff;
         border-radius: 16px;
         padding: 1.5rem;
         margin-bottom: 1.5rem;
-        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
-        border: none;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        border: 1px solid #e5e7eb;
     }
     
     .card-title {
@@ -66,6 +66,7 @@ st.markdown("""
         padding: 1rem;
         text-align: center;
         color: white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     
     .metric-correct {
@@ -74,6 +75,7 @@ st.markdown("""
         padding: 1rem;
         text-align: center;
         color: white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     
     .metric-incorrect {
@@ -82,6 +84,7 @@ st.markdown("""
         padding: 1rem;
         text-align: center;
         color: white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     
     .metric-taux {
@@ -90,6 +93,7 @@ st.markdown("""
         padding: 1rem;
         text-align: center;
         color: white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     
     .metric-number {
@@ -105,12 +109,12 @@ st.markdown("""
     
     /* En-tête */
     .header {
-        background: white;
+        background: #ffffff;
         padding: 1.5rem;
         border-radius: 16px;
         margin-bottom: 1.5rem;
         text-align: center;
-        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+        border: 1px solid #e5e7eb;
     }
     
     .header h1 {
@@ -127,25 +131,6 @@ st.markdown("""
         margin: 0.5rem 0 0 0;
     }
     
-    /* Badges */
-    .badge-success {
-        background: #d1fae5;
-        color: #065f46;
-        padding: 0.2rem 0.6rem;
-        border-radius: 20px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-    
-    .badge-error {
-        background: #fee2e2;
-        color: #991b1b;
-        padding: 0.2rem 0.6rem;
-        border-radius: 20px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-    
     /* Bouton */
     .stButton > button {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -159,7 +144,7 @@ st.markdown("""
     
     .stButton > button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 10px 20px rgba(102,126,234,0.3);
+        box-shadow: 0 10px 20px rgba(102,126,234,0.2);
     }
     
     /* Input */
@@ -189,8 +174,9 @@ st.markdown("""
         text-align: center;
         padding: 1.5rem;
         margin-top: 2rem;
-        color: rgba(255,255,255,0.8);
+        color: #9ca3af;
         font-size: 0.8rem;
+        border-top: 1px solid #e5e7eb;
     }
 </style>
 """, unsafe_allow_html=True)
