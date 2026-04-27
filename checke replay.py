@@ -9,33 +9,44 @@ st.set_page_config(
     layout="wide"
 )
 
-# ==================== CSS ====================
+# ==================== CSS SIMPLE ====================
 st.markdown("""
 <style>
-    /* Police */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-    
-    * {
-        font-family: 'Inter', sans-serif;
+    /* En-tête */
+    .header {
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+        text-align: center;
     }
     
-    /* Pas de fond forcé - laisse le fond Streamlit par défaut */
+    .header h1 {
+        color: white;
+        margin: 0;
+        font-size: 2rem;
+    }
     
-    /* Cartes */
+    .header p {
+        color: #e0e0e0;
+        margin: 0.5rem 0 0 0;
+    }
+    
+    /* Cartes normales */
     .card {
         background: white;
-        border-radius: 16px;
+        border-radius: 12px;
         padding: 1.5rem;
         margin-bottom: 1.5rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        border: 1px solid #e5e7eb;
+        border: 1px solid #e0e0e0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
     
     .card-title {
-        font-size: 1rem;
+        font-size: 1.2rem;
         font-weight: 600;
         margin-bottom: 1rem;
-        color: #1f2937;
+        color: #1e3c72;
         display: flex;
         align-items: center;
         gap: 0.5rem;
@@ -43,130 +54,62 @@ st.markdown("""
     
     /* Zone upload */
     .upload-area {
-        border: 2px dashed #c7d2fe;
-        border-radius: 12px;
-        padding: 1rem;
+        border: 2px dashed #2a5298;
+        border-radius: 10px;
+        padding: 1.5rem;
         text-align: center;
         background: #fafafa;
-        transition: all 0.2s;
     }
     
-    .upload-area:hover {
-        border-color: #6366f1;
-        background: #f5f3ff;
-    }
-    
-    /* Métriques colorées */
+    /* Métriques */
     .metric-total {
-        background: linear-gradient(135deg, #3b82f6, #2563eb);
-        border-radius: 12px;
+        background: #3b82f6;
+        border-radius: 10px;
         padding: 1rem;
         text-align: center;
         color: white;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     
     .metric-correct {
-        background: linear-gradient(135deg, #10b981, #059669);
-        border-radius: 12px;
+        background: #10b981;
+        border-radius: 10px;
         padding: 1rem;
         text-align: center;
         color: white;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     
     .metric-incorrect {
-        background: linear-gradient(135deg, #ef4444, #dc2626);
-        border-radius: 12px;
+        background: #ef4444;
+        border-radius: 10px;
         padding: 1rem;
         text-align: center;
         color: white;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     
     .metric-taux {
-        background: linear-gradient(135deg, #f59e0b, #d97706);
-        border-radius: 12px;
+        background: #f59e0b;
+        border-radius: 10px;
         padding: 1rem;
         text-align: center;
         color: white;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     
     .metric-number {
         font-size: 2rem;
-        font-weight: 700;
+        font-weight: bold;
     }
     
     .metric-label {
-        font-size: 0.75rem;
-        opacity: 0.9;
+        font-size: 0.8rem;
         margin-top: 0.3rem;
-    }
-    
-    /* En-tête */
-    .header {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 16px;
-        margin-bottom: 1.5rem;
-        text-align: center;
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-    }
-    
-    .header h1 {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin: 0;
-        font-size: 2rem;
-        font-weight: 700;
-    }
-    
-    .header p {
-        color: #6b7280;
-        margin: 0.5rem 0 0 0;
-    }
-    
-    /* Bouton */
-    .stButton > button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        padding: 0.7rem 2rem;
-        font-weight: 600;
-        border-radius: 40px;
-        font-size: 0.9rem;
-        transition: all 0.2s;
-    }
-    
-    .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 20px rgba(102,126,234,0.2);
-    }
-    
-    /* Input */
-    .stTextInput > div > div > input {
-        border-radius: 10px;
-        border: 1px solid #e5e7eb;
-        padding: 0.5rem 1rem;
-    }
-    
-    .stTextInput > div > div > input:focus {
-        border-color: #6366f1;
-        box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
     }
     
     /* Info box */
     .info-box {
-        background: #f0fdf4;
-        padding: 0.6rem 1rem;
-        border-radius: 10px;
-        font-size: 0.85rem;
-        color: #166534;
+        background: #e0e7ff;
+        padding: 0.8rem;
+        border-radius: 8px;
         margin-bottom: 1rem;
-        border-left: 3px solid #10b981;
     }
     
     /* Footer */
@@ -174,14 +117,26 @@ st.markdown("""
         text-align: center;
         padding: 1.5rem;
         margin-top: 2rem;
-        color: #9ca3af;
-        font-size: 0.8rem;
-        border-top: 1px solid #e5e7eb;
+        border-top: 1px solid #e0e0e0;
+        color: #666;
     }
     
-    /* Divider */
-    hr {
-        margin: 1rem 0;
+    /* Bouton */
+    .stButton > button {
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        color: white;
+        border: none;
+        padding: 0.6rem 2rem;
+        font-weight: 600;
+        border-radius: 8px;
+        width: 100%;
+    }
+    
+    /* Input */
+    .stTextInput > div > div > input {
+        border-radius: 8px;
+        border: 1px solid #d0d0d0;
+        padding: 0.5rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -189,8 +144,8 @@ st.markdown("""
 # ==================== EN-TÊTE ====================
 st.markdown("""
 <div class="header">
-    <h1>✅ Vérification des réponses fournisseur</h1>
-    <p>Contrôle automatique des quantités Oversent</p>
+    <h1>✅ Vérification des Réponses Fournisseur</h1>
+    <p>Contrôle automatique des quantités Oversent vs Stock</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -237,17 +192,17 @@ def get_oversent_stock(df_stock, part_n, idl):
     df_filtered = df_stock[mask].reset_index(drop=True)
     
     if df_filtered.empty:
-        raise ValueError("Part N non trouvé")
+        raise ValueError(f"Part N non trouvé")
     
     mask_idl = df_filtered[col_idl].astype(str).str.strip() == str(idl).strip()
     idx = df_filtered[mask_idl].index
     
     if len(idx) == 0:
-        raise ValueError("IDL non trouvé")
+        raise ValueError(f"IDL non trouvé")
     
     pos = idx[0]
     if pos == 0:
-        raise ValueError("IDL à la première ligne")
+        raise ValueError(f"IDL à la première ligne")
     
     val = df_filtered.iloc[pos - 1, 10]
     return float(val) if pd.notna(val) else 0.0
@@ -289,11 +244,11 @@ if reply_file and stock_files:
         
         st.markdown(f"""
         <div class="info-box">
-            📁 {len(dict_reply)} feuille(s) : <strong>{', '.join(dict_reply.keys())}</strong>
+            📁 {len(dict_reply)} feuille(s) trouvée(s) : <strong>{', '.join(dict_reply.keys())}</strong>
         </div>
         """, unsafe_allow_html=True)
         
-        # IDL
+        # IDL par modèle
         st.markdown("""
         <div class="card">
             <div class="card-title">
@@ -306,26 +261,26 @@ if reply_file and stock_files:
         
         for i, modele in enumerate(dict_reply.keys()):
             with cols[i % len(cols)]:
-                st.markdown(f"<span style='font-weight:500;'>📱 {modele}</span>", unsafe_allow_html=True)
-                idl = st.text_input("", key=f"idl_{modele}", placeholder="IDL", label_visibility="collapsed")
+                st.markdown(f"**📱 {modele}**")
+                idl = st.text_input("", key=f"idl_{modele}", placeholder="Entrez l'IDL", label_visibility="collapsed")
                 if idl:
                     idl_par_modele[modele] = idl
         
         st.markdown('</div>', unsafe_allow_html=True)
         
         # Bouton
-        col_btn1, col_btn2, col_btn3 = st.columns([1,2,1])
+        col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
         with col_btn2:
-            verifier = st.button("🚀 VÉRIFIER", use_container_width=True)
+            verifier = st.button("🚀 LANCER LA VÉRIFICATION")
         
         if verifier:
             if not idl_par_modele:
-                st.warning("⚠️ Saisissez au moins un IDL")
+                st.warning("⚠️ Veuillez saisir au moins un IDL")
             else:
                 resultats = []
                 erreurs = []
                 
-                with st.spinner("⏳ Vérification..."):
+                with st.spinner("⏳ Vérification en cours..."):
                     for modele, df_feuille in dict_reply.items():
                         if modele not in idl_par_modele:
                             continue
@@ -360,9 +315,7 @@ if reply_file and stock_files:
                                 erreurs.append(f"{part_n}: Fichier {moka_file} non trouvé")
                                 resultats.append({
                                     'Modèle': modele, 'Part N': part_n, 'Description': desc,
-                                    'Remarks': remarks, 'Qty for': qty_for, 'Packing Qty': packing_qty,
-                                    'Oversent FRS': oversent_frs, 'Oversent Calculé': None,
-                                    'Écart': None, 'Status': '❌'
+                                    'Remarks': remarks, 'Status': '❌'
                                 })
                                 continue
                             
@@ -391,7 +344,13 @@ if reply_file and stock_files:
                                 })
                 
                 if resultats:
-                    st.markdown("<hr>", unsafe_allow_html=True)
+                    st.markdown("---")
+                    st.markdown("""
+                    <div class="card">
+                        <div class="card-title">
+                            <span>📊</span> Résultats de la vérification
+                        </div>
+                    """, unsafe_allow_html=True)
                     
                     df_res = pd.DataFrame(resultats)
                     total = len(df_res)
@@ -458,13 +417,11 @@ if reply_file and stock_files:
                     if incorrects == 0:
                         st.balloons()
                         st.success("🎉 Félicitations ! Toutes les vérifications sont correctes !")
+                    
+                    st.markdown('</div>', unsafe_allow_html=True)
 
 else:
-    st.markdown("""
-    <div class="info-box" style="text-align: center;">
-        ✨ Chargez les fichiers pour commencer
-    </div>
-    """, unsafe_allow_html=True)
+    st.info("👈 Veuillez charger les fichiers pour commencer")
 
 # Footer
 st.markdown("""
